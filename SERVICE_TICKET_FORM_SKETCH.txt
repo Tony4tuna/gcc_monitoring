@@ -1,0 +1,127 @@
+================================================================================
+                    SERVICE TICKET FORM - PROPOSED LAYOUT
+                            (FOR APPROVAL)
+================================================================================
+
+CURRENT ISSUES IDENTIFIED:
+✗ Company header (address, phone, email, website) - TO REMOVE
+✗ Contact Information section (Customer, Location, Phone, Email) - TO REMOVE  
+✗ Materials & Services writing box - TO REMOVE
+✗ Labor Description writing box - TO REMOVE
+
+================================================================================
+
+                           PROPOSED NEW LAYOUT:
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                               │
+│  Ticket #: TKT001234        Date: 2026-01-22        Time: 14:30:45          │
+│                                                                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  LEFT COLUMN                                  RIGHT COLUMN                   │
+│  ──────────────────                           ───────────────────           │
+│                                                                               │
+│  UNIT INFORMATION                             SERVICE STATUS                 │
+│  Unit ID: RTU-12345                           Status: Open                   │
+│  Make: Carrier                                Priority: High                 │
+│  Model: 48XL                                  Health: 85%                    │
+│  Serial: SN123456789                          Created: 2026-01-22           │
+│                                                                               │
+│                                                ALERT SUMMARY                 │
+│  SERVICE TICKET INFO                          • High discharge pressure      │
+│  Title: Compressor not running                • Low superheat                │
+│  Description:                                 • Possible refrigerant leak    │
+│  Compressor is not responding to              • Suction pressure low         │
+│  control signals. Last seen running           • Delta T out of range         │
+│  at 2026-01-21 14:00. Unit stopped                                          │
+│  cooling on 2026-01-22 08:15 AM.                                            │
+│                                                                               │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                               │
+│  TICKET DETAILS:                                                             │
+│  Requested By: technician@company.com                                        │
+│  Ticket ID: TKT001234                                                        │
+│  Created: 2026-01-22 14:30:45                                                │
+│  Status: Open                                                                 │
+│                                                                               │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                               │
+│  MATERIALS & SERVICES:                                                       │
+│  Refrigerant (R410A) - 2 lbs                                                │
+│  Compressor replacement - 1 unit                                             │
+│  Capacitor - 35µF 370VAC                                                    │
+│  Labor: 3.5 hours (diagnostics + replacement)                               │
+│                                                                               │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                               │
+│  LABOR DESCRIPTION:                                                          │
+│  Diagnosed compressor failure via electrical continuity testing.             │
+│  Ordered replacement under warranty. Installed new unit per                  │
+│  manufacturer specs. System tested and confirmed operational.                │
+│  Customer advised of preventive maintenance schedule.                        │
+│                                                                               │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                               │
+│  Customer Signature: ____________________________   Date: ____________       │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                           DATA THAT WILL DISPLAY:
+================================================================================
+
+From ServiceCalls Table:
+  ✓ Ticket # (ID)
+  ✓ Status
+  ✓ Priority
+  ✓ Title
+  ✓ Description
+  ✓ Materials & Services (NEW field - from form)
+  ✓ Labor Description (NEW field - from form)
+  ✓ Created timestamp
+
+From Units Table:
+  ✓ Unit ID
+  ✓ Make
+  ✓ Model
+  ✓ Serial
+
+From System/Health:
+  ✓ Health Score (%)
+  ✓ Alert Summary (list of active alerts)
+
+================================================================================
+                           WHAT GETS REMOVED:
+================================================================================
+
+✗ Company Header (name, address, city/state/zip, phone, email, website)
+✗ "HVAC Service Order Invoice" title
+✗ "CONTACT INFORMATION" section entirely
+✗ Customer field
+✗ Location field
+✗ Customer phone
+✗ Customer email
+✗ Large writing boxes with guide lines (already captured in text fields above)
+
+================================================================================
+                           WHAT GETS ADDED:
+================================================================================
+
+✓ Display Materials & Services text (from form input)
+✓ Display Labor Description text (from form input)
+✓ Cleaner two-column layout focused on SERVICE DATA
+✓ Professional alignment without company branding
+
+================================================================================
+
+QUESTION FOR APPROVAL:
+1. Does this layout look correct?
+2. Should Materials & Services and Labor Description display as-is (text only, 
+   no writing lines)?
+3. Do we need the "Requested By" field?
+4. Should we keep the "Signature" line at bottom?
+5. Any other fields that should be added or removed?
+
+================================================================================

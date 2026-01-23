@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "build_date": "2026-01-22",
+  "release_date": "2026-01-22",
+  "description": "GCC HVAC Monitoring Dashboard - Initial Release",
+  "features": [
+    "Service Tickets Management",
+    "Equipment Monitoring",
+    "Alert System",
+    "Dashboard Analytics",
+    "PDF Service Orders"
+  ]
+}

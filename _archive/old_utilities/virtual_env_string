@@ -1,0 +1,6 @@
+ cd "C:\Users\Public\GCC_Monitoring\gcc_monitoring"
+ .\venv\Scripts\Activate.ps1
+
+login_id: god
+
+password: ChangeMeNow!123 (change it immediately after first login)

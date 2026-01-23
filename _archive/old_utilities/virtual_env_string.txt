@@ -1,0 +1,2 @@
+ cd "C:\Users\Public\GCC_Monitoring\gcc_monitoring"
+ .\venv\Scripts\Activate.ps1
