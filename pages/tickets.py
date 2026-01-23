@@ -443,10 +443,11 @@ def show_print_call(call: Dict[str, Any]):
                     "const byteChars=atob(b64);const byteNums=new Array(byteChars.length);"+
                     "for(let i=0;i<byteChars.length;i++){byteNums[i]=byteChars.charCodeAt(i);}"+
                     "const byteArray=new Uint8Array(byteNums);const blob=new Blob([byteArray],{type:'application/pdf'});"+
-                    "const url=URL.createObjectURL(blob);window.open(url,'_blank');})();"
+                    "const url=URL.createObjectURL(blob);const w=window.open(url,'_blank');"+
+                    "if(w){setTimeout(()=>{w.print();},500);}})();"
                 )).props("color=blue")
                 ui.button("Download PDF", icon="download", on_click=lambda: ui.download(pdf_bytes, filename=os.path.basename(pdf_path))).props("color=green")
-                ui.button("Close", on_click=dlg.close).props("flat")
+                ui.button("Close", on_click=lambda: dlg.close()).props("flat")
 
         dlg.open()
         ui.notify("PDF generated", type="positive")
