@@ -1,0 +1,14 @@
+
+
+{
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}",
+    "${workspaceFolder}/core",
+    "${workspaceFolder}/ui",
+    "${workspaceFolder}/pages"
+  ],
+  "workbench.editor.autoLockGroups": {
+    "mainThreadWebview-simpleBrowser.view": false
+  },
+  "workbench.editor.customLabels.enabled": false
+}

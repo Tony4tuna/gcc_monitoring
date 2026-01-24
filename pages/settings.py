@@ -3,6 +3,7 @@
 
 from nicegui import ui
 from core.auth import require_login, is_admin, current_user
+from core.logger import log_user_action, handle_error
 from core.settings_repo import (
     get_company_profile, update_company_profile,
     get_email_settings, update_email_settings,
@@ -186,21 +187,23 @@ def create_employee_profile_tab() -> ui.card:
                 ui.button("+ Add Employee", on_click=lambda: show_employee_dialog(card, None)).classes("bg-green-600 hover:bg-green-700")
             
             # Employee table
-            employees_table = ui.table(
-                columns=[
-                    {'name': 'id', 'label': 'ID', 'field': 'id', 'align': 'left'},
-                    {'name': 'employee_id', 'label': 'Employee ID', 'field': 'employee_id'},
-                    {'name': 'first_name', 'label': 'First Name', 'field': 'first_name'},
-                    {'name': 'last_name', 'label': 'Last Name', 'field': 'last_name'},
-                    {'name': 'position', 'label': 'Position', 'field': 'position'},
-                    {'name': 'email', 'label': 'Email', 'field': 'email'},
-                    {'name': 'security_clearance', 'label': 'Clearance', 'field': 'security_clearance'},
-                    {'name': 'can_login', 'label': 'Login', 'field': 'can_login'},
-                    {'name': 'status', 'label': 'Status', 'field': 'status'},
-                ],
-                rows=list_employees(),
-                row_key='id'
-            ).classes("w-full")
+            with ui.card().classes("gcc-card gcc-scrollable-card mt-4"):
+                employees_table = ui.table(
+                    columns=[
+                        {'name': 'id', 'label': 'ID', 'field': 'id', 'align': 'left'},
+                        {'name': 'employee_id', 'label': 'Employee ID', 'field': 'employee_id'},
+                        {'name': 'first_name', 'label': 'First Name', 'field': 'first_name'},
+                        {'name': 'last_name', 'label': 'Last Name', 'field': 'last_name'},
+                        {'name': 'position', 'label': 'Position', 'field': 'position'},
+                        {'name': 'email', 'label': 'Email', 'field': 'email'},
+                        {'name': 'security_clearance', 'label': 'Clearance', 'field': 'security_clearance'},
+                        {'name': 'can_login', 'label': 'Login', 'field': 'can_login'},
+                        {'name': 'status', 'label': 'Status', 'field': 'status'},
+                    ],
+                    rows=list_employees(),
+                    row_key='id',
+                    pagination={"rowsPerPage": 10}
+                ).classes("gcc-fixed-table")
             
             # Search function
             def on_search():
@@ -367,19 +370,21 @@ def create_ticket_sequence_tab() -> ui.card:
             
             # Sequences table
             sequences = list_ticket_sequences()
-            sequences_table = ui.table(
-                columns=[
-                    {'name': 'id', 'label': 'ID', 'field': 'id'},
-                    {'name': 'sequence_type', 'label': 'Type', 'field': 'sequence_type'},
-                    {'name': 'prefix', 'label': 'Prefix', 'field': 'prefix'},
-                    {'name': 'current_number', 'label': 'Current #', 'field': 'current_number'},
-                    {'name': 'format_pattern', 'label': 'Format', 'field': 'format_pattern'},
-                    {'name': 'reset_period', 'label': 'Reset', 'field': 'reset_period'},
-                    {'name': 'is_active', 'label': 'Active', 'field': 'is_active'},
-                ],
-                rows=sequences,
-                row_key='id'
-            ).classes("w-full")
+            with ui.card().classes("gcc-card gcc-scrollable-card mt-4"):
+                sequences_table = ui.table(
+                    columns=[
+                        {'name': 'id', 'label': 'ID', 'field': 'id'},
+                        {'name': 'sequence_type', 'label': 'Type', 'field': 'sequence_type'},
+                        {'name': 'prefix', 'label': 'Prefix', 'field': 'prefix'},
+                        {'name': 'current_number', 'label': 'Current #', 'field': 'current_number'},
+                        {'name': 'format_pattern', 'label': 'Format', 'field': 'format_pattern'},
+                        {'name': 'reset_period', 'label': 'Reset', 'field': 'reset_period'},
+                        {'name': 'is_active', 'label': 'Active', 'field': 'is_active'},
+                    ],
+                    rows=sequences,
+                    row_key='id',
+                    pagination={"rowsPerPage": 10}
+                ).classes("gcc-fixed-table")
     
     return card
 
@@ -546,18 +551,19 @@ def create_admin_tab() -> ui.card:
                 with ui.column().classes("flex-1"):
                     ui.label("Users / Logins").classes("font-bold")
                     
-                    logins_table = ui.table(
-                        columns=[
-                            {"name": "login_id", "label": "Login", "field": "login_id"},
-                            {"name": "belongs_to", "label": "Belongs To", "field": "belongs_to"},
-                            {"name": "role", "label": "Role", "field": "role"},
-                            {"name": "active", "label": "Active", "field": "active"},
-                        ],
-                        rows=[],
-                        row_key="login_db_id",
-                        selection="single",
-                        pagination=10,
-                    ).classes("w-full")
+                    with ui.card().classes("gcc-card gcc-scrollable-card mt-2"):
+                        logins_table = ui.table(
+                            columns=[
+                                {"name": "login_id", "label": "Login", "field": "login_id"},
+                                {"name": "belongs_to", "label": "Belongs To", "field": "belongs_to"},
+                                {"name": "role", "label": "Role", "field": "role"},
+                                {"name": "active", "label": "Active", "field": "active"},
+                            ],
+                            rows=[],
+                            row_key="login_db_id",
+                            selection="single",
+                            pagination={"rowsPerPage": 10},
+                        ).classes("gcc-fixed-table")
                     
                     with ui.row().classes("gap-2 mt-2"):
                         btn_add = ui.button("ADD", color="positive")

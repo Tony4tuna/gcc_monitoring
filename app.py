@@ -11,6 +11,7 @@ import threading
 from pathlib import Path
 
 from core.auth import current_user, ensure_admin, is_admin, logout
+from core.logger import log_info, log_error, log_user_action
 
 from pages import login as login_page
 from pages import dashboard
@@ -27,17 +28,8 @@ import logging
 
 # Silence the annoying Windows connection lost warning
 logging.getLogger("asyncio").setLevel(logging.WARNING)
-# Or even stricter:
-# logging.getLogger("proactor").setLevel(logging.ERROR)
 
-#-----------------------------*/
-###import warnings
-###warnings.filterwarnings(
-###    "ignore",
-###    message="Exception in callback _ProactorBasePipeTransport._call_connection_lost",
-###    category=RuntimeWarning
-###)
-#------------------------------/*
+log_info("GCC Monitoring System Starting", "app")
 
 
 

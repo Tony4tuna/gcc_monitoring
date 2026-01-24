@@ -137,3 +137,21 @@ def delete_location(location_id: int) -> None:
     with get_conn() as conn:
         conn.execute("DELETE FROM PropertyLocations WHERE ID = ?", (location_id,))
         conn.commit()
+
+
+def get_location_by_id(location_id: int):
+    """
+    Return a single location by ID.
+    Used by Unit Issue Dialog.
+    """
+    query = """
+    SELECT *
+    FROM PropertyLocations
+    WHERE ID = ?
+    """
+    from core.db import get_conn
+
+    with get_conn() as conn:
+        cursor = conn.execute(query, (location_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
