@@ -26,7 +26,8 @@ def page():
         </style>
         """)
 
-        with ui.row().classes("gap-3 w-full items-center flex-wrap"):
+        # Toolbar
+        with ui.row().classes("gap-3 w-full items-center flex-wrap mb-4"):
             search = ui.input("Search (company, name, email, phone)").classes("w-96")
             ui.button("Refresh", icon="refresh", on_click=lambda: refresh()).props("outline dense").tooltip("Reload client list")
             ui.space()
@@ -34,7 +35,8 @@ def page():
             ui.button("Edit", icon="edit", on_click=lambda: open_customer_dialog("edit")).props(f"dense {'disable' if not can_edit else ''}").tooltip("Edit selected client")
             ui.button("Delete", icon="delete", on_click=lambda: open_customer_dialog("delete")).props(f"dense color=negative outline {'disable' if not can_edit else ''}").tooltip("Delete selected client")
 
-        with ui.card().classes("gcc-card gcc-scrollable-card mt-4"):
+        # Table with fixed height
+        with ui.card().classes("gcc-card").style("height: calc(100vh - 350px); display: flex; flex-direction: column;"):
             table = ui.table(
                 columns=[
                     {"name": "ID", "label": "ID", "field": "ID"},
@@ -48,9 +50,9 @@ def page():
                 rows=[],
                 row_key="ID",
                 selection="single",
-                pagination={"rowsPerPage": 10},
-            ).classes("gcc-fixed-table")
-            table.props("dense bordered")
+                pagination={"rowsPerPage": 15},
+            ).classes("w-full").style("flex: 1; min-height: 0;")
+            table.props("dense bordered virtual-scroll")
 
         def refresh():
             rows = list_customers(search.value or "")

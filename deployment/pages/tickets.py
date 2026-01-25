@@ -4,6 +4,8 @@ Full CRUD interface for service call management
 """
 
 from nicegui import ui, app
+import os
+import base64
 from typing import Optional, Dict, Any
 from core.auth import current_user, require_login
 from core.tickets_repo import (
@@ -93,8 +95,9 @@ def render_calls_list(customer_id: Optional[int] = None, hierarchy: int = 5):
             ui.button("Search", icon="search", on_click=lambda: refresh_calls())
             ui.button("Print All", icon="print", on_click=lambda: show_print_all(search_input.value, status_filter.value, priority_filter.value, customer_id))
     
-    # Calls container
-    calls_container = ui.column().classes("w-full gap-3")
+    # Calls container with fixed height and scroll
+    with ui.card().classes("gcc-card").style("height: calc(100vh - 480px); overflow-y: auto;"):
+        calls_container = ui.column().classes("w-full gap-3")
     
     def refresh_calls():
         calls_container.clear()
@@ -156,6 +159,7 @@ def render_call_card(call: Dict[str, Any], hierarchy: int):
             # Right: Actions
             if hierarchy <= 3:  # Admin/Tech can edit
                 with ui.row().classes("gap-2"):
+                    ui.button(icon="visibility", on_click=lambda c=call: show_ticket_detail(c)).props("flat dense")
                     ui.button(icon="print", on_click=lambda c=call: show_print_call(c)).props("flat dense color=blue").tooltip("Print")
                     ui.button(icon="edit", on_click=lambda c=call: show_edit_dialog(c)).props("flat dense").tooltip("Edit")
                     if status != "Closed":
@@ -164,7 +168,7 @@ def render_call_card(call: Dict[str, Any], hierarchy: int):
                         ui.button(icon="delete", on_click=lambda cid=call_id: confirm_delete(cid)).props("flat dense color=red").tooltip("Delete")
         
         # Details
-        with ui.grid(columns=3).classes("gap-2 text-sm gcc-muted"):
+        with ui.grid(columns=4).classes("gap-2 text-sm gcc-muted"):
             with ui.column():
                 ui.label("Customer")
                 ui.label(call.get("customer_name", "N/A")).classes("font-semibold")
@@ -175,17 +179,99 @@ def render_call_card(call: Dict[str, Any], hierarchy: int):
             
             with ui.column():
                 ui.label("Equipment")
-                ui.label(call.get("unit_name", "N/A"))
+                eq_type = call.get('equipment_type', 'Unit')
+                unit_txt = f"{eq_type}-{call.get('unit_id')}" if call.get('unit_id') else (call.get("unit_name", "N/A"))
+                ui.label(unit_txt or "N/A")
+
+            with ui.column():
+                ui.label("Specs")
+                specs = []
+                if call.get('tonnage'):
+                    specs.append(f"{call.get('tonnage')}T")
+                if call.get('refrigerant_type'):
+                    specs.append(call.get('refrigerant_type'))
+                ui.label(" | ".join(specs) or "N/A")
         
         if call.get("description"):
             ui.separator().classes("my-2")
             ui.label(call.get("description", "")).classes("text-sm")
+
+        if call.get("materials_services") or call.get("labor_description"):
+            ui.separator().classes("my-2")
+            if call.get("materials_services"):
+                ui.label("Materials & Services").classes("text-xs font-semibold")
+                ui.label(call.get("materials_services", "")).classes("text-xs")
+            if call.get("labor_description"):
+                ui.label("Labor Description").classes("text-xs font-semibold mt-1")
+                ui.label(call.get("labor_description", "")).classes("text-xs")
         
         # Footer: dates
         with ui.row().classes("text-xs gcc-muted mt-2 gap-4"):
             ui.label(f"Created: {call.get('created', '')[:16]}")
             if call.get("closed"):
                 ui.label(f"Closed: {call.get('closed')[:16]}")
+
+
+def show_ticket_detail(ticket: Dict[str, Any]) -> None:
+    """Read-only detail dialog for service tickets (matches dashboard view)."""
+    with ui.dialog() as dlg, ui.card().classes("gcc-card p-4 w-full max-w-4xl"):
+        ticket_no = ticket.get('ticket_no') or str(ticket.get('ID', '—'))
+        if '-' in str(ticket_no):
+            date_part, num_part = str(ticket_no).split('-', 1)
+            with ui.row().classes("items-center gap-1"):
+                ui.label("Service Ticket #").classes("text-lg font-bold")
+                ui.label(date_part + "-").classes("text-lg font-bold")
+                ui.label(num_part).classes("text-lg font-bold text-yellow-400")
+        else:
+            ui.label(f"Service Ticket #{ticket_no}").classes("text-lg font-bold")
+        ui.label(
+            f"Status: {ticket.get('status','—')} | Priority: {ticket.get('priority','—')} | Created: {(ticket.get('created') or '')[:19]}"
+        ).classes("text-sm gcc-muted")
+
+        ui.separator().classes("my-2")
+
+        ui.label(f"Customer: {ticket.get('customer_name') or ticket.get('customer','—')}").classes("text-sm")
+        ui.label(f"Location: {ticket.get('location_address') or ticket.get('location','—')}").classes("text-sm")
+        eq_type = ticket.get('equipment_type', 'RTU')
+        unit_txt = f"{eq_type}-{ticket.get('unit_id')}" if ticket.get('unit_id') else "—"
+        ui.label(f"Unit: {unit_txt}").classes("text-sm")
+
+        specs = []
+        if ticket.get('make'):
+            specs.append(f"Make: {ticket.get('make')}")
+        if ticket.get('model'):
+            specs.append(f"Model: {ticket.get('model')}")
+        if ticket.get('refrigerant_type'):
+            specs.append(f"Refrig: {ticket.get('refrigerant_type')}")
+        if ticket.get('tonnage'):
+            specs.append(f"Capacity: {ticket.get('tonnage')} Ton")
+        if specs:
+            ui.label(" | ".join(specs)).classes("text-sm gcc-muted")
+
+        ui.separator().classes("my-2")
+
+        ui.label("Title").classes("text-sm font-bold")
+        ui.label(ticket.get("title") or "—").classes("text-sm")
+
+        ui.separator().classes("my-2")
+
+        ui.label("General Description").classes("text-sm font-bold")
+        ui.textarea(value=ticket.get("description") or "").props("readonly autogrow").classes("w-full")
+
+        ui.separator().classes("my-2")
+
+        ui.label("Materials & Services").classes("text-sm font-bold")
+        ui.textarea(value=ticket.get("materials_services") or "").props("readonly autogrow").classes("w-full")
+
+        ui.separator().classes("my-2")
+
+        ui.label("Labor Description").classes("text-sm font-bold")
+        ui.textarea(value=ticket.get("labor_description") or "").props("readonly autogrow").classes("w-full")
+
+        with ui.row().classes("justify-end mt-3 gap-2"):
+            ui.button("Close", on_click=dlg.close).props("dense")
+
+    dlg.open()
 
 
 def show_close_dialog(call_id: int):
@@ -276,76 +362,106 @@ def confirm_delete(call_id: int):
 
 
 def show_print_call(call: Dict[str, Any]):
-    """Show printable version of service call - matching PDF format"""
-    with ui.dialog() as dialog, ui.card().classes("gcc-card p-8 max-w-4xl bg-white text-black"):
-        # Header
-        ui.label("GCC TECHNOLOGY").classes("text-sm font-bold")
-        ui.label("HVAC Service Order Invoice").classes("text-lg font-bold mb-1")
-        
-        # Ticket Info Row
-        with ui.grid(columns=3).classes("gap-4 mb-4 w-full"):
-            with ui.column():
-                ui.label("Ticket #").classes("text-xs font-bold gcc-muted")
-                ui.label(f"#{call.get('ID')}").classes("font-mono text-sm")
-            with ui.column():
-                ui.label("Date").classes("text-xs font-bold gcc-muted")
-                ui.label((call.get('created') or '')[:10]).classes("font-mono text-sm")
-            with ui.column():
-                ui.label("Time").classes("text-xs font-bold gcc-muted")
-                ui.label((call.get('created') or '')[11:19] if len(call.get('created', '')) > 10 else "—").classes("font-mono text-sm")
-        
-        ui.separator().classes("my-3")
-        
-        # Two columns: Contact + Status
-        with ui.row().classes("w-full gap-6"):
-            with ui.column().classes("flex-1"):
-                ui.label("CONTACT INFORMATION").classes("text-xs font-bold border-b pb-2")
-                ui.label(f"Customer: {call.get('customer', '—')}").classes("text-xs mt-2")
-                ui.label(f"Location: {call.get('location', '—')}").classes("text-xs")
-                unit_txt = f"RTU-{call.get('unit_id')}" if call.get('unit_id') else "—"
-                ui.label(f"Unit: {unit_txt}").classes("text-xs")
-            
-            with ui.column().classes("flex-1"):
-                ui.label("SERVICE STATUS").classes("text-xs font-bold border-b pb-2")
-                ui.label(f"Status: {call.get('status', '—')}").classes("text-xs mt-2")
-                ui.label(f"Priority: {call.get('priority', '—')}").classes("text-xs")
-                ui.label(f"Created: {(call.get('created') or '')[:19]}").classes("text-xs")
-        
-        ui.separator().classes("my-4")
-        
-        # Title
-        ui.label("Title").classes("text-xs font-bold")
-        ui.label(call.get("title", "—")).classes("text-sm mb-3")
-        
-        # Description
-        ui.label("General Description").classes("text-xs font-bold mt-2")
-        with ui.element().classes("bg-gray-100 p-3 rounded text-xs mb-3"):
-            ui.label(call.get("description", "—")).classes("text-xs whitespace-pre-wrap")
-        
-        # Materials
-        if call.get("materials_services"):
-            ui.label("Materials & Services").classes("text-xs font-bold mt-2")
-            with ui.element().classes("bg-gray-100 p-3 rounded text-xs mb-3"):
-                ui.label(call.get("materials_services", "—")).classes("text-xs whitespace-pre-wrap")
-        
-        # Labor
-        if call.get("labor_description"):
-            ui.label("Labor Description").classes("text-xs font-bold mt-2")
-            with ui.element().classes("bg-gray-100 p-3 rounded text-xs mb-3"):
-                ui.label(call.get("labor_description", "—")).classes("text-xs whitespace-pre-wrap")
-        
-        ui.separator().classes("my-4")
-        
-        # Signature area
-        ui.label("Customer Signature: _______________________     Date: __________").classes("text-xs font-mono")
-        
-        with ui.row().classes("justify-end gap-2 mt-6"):
-            ui.button("Close", on_click=dialog.close).props("flat")
-            ui.button("Print", icon="print", on_click=lambda: ui.run_javascript("window.print()")).props("color=blue")
-    
-    dialog.open()
-    
-    dialog.open()
+    """Use the same PDF generator as dashboard for consistency."""
+    try:
+        # Lazy import to avoid circulars
+        from pages.dashboard import generate_service_order_pdf, _generate_ticket_no
+
+        # Build data payload expected by generator
+        data = {
+            "customer": call.get('customer') or call.get('customer_name') or '—',
+            "location": call.get('location') or call.get('location_address') or '—',
+            "customer_phone": "—",
+            "customer_email": "—",
+            "unit_id": call.get('unit_id', 0),
+            "equipment_type": call.get('equipment_type', 'RTU'),
+            "make": call.get('make', '—'),
+            "model": call.get('model', '—'),
+            "serial": call.get('serial', '—'),
+            "refrigerant_type": call.get('refrigerant_type', '—'),
+            "voltage": call.get('voltage', '—'),
+            "amperage": call.get('amperage', '—'),
+            "btu_rating": call.get('btu_rating', '—'),
+            "tonnage": call.get('tonnage', '—'),
+            "breaker_size": call.get('breaker_size', '—'),
+            "inst_date": call.get('unit_inst_date') or call.get('inst_date') or '—',
+            "warranty_end_date": call.get('warranty_end_date', '—'),
+            "status": call.get('status', '—'),
+            "priority": call.get('priority', '—'),
+            "title": call.get('title', '—'),
+            "description": call.get('description', '—'),
+            "materials_services": call.get('materials_services', '—'),
+            "labor_description": call.get('labor_description', '—'),
+            "created": call.get('created', ''),
+        }
+
+        # Dummy health/alerts placeholders (match dashboard behavior)
+        health = {"score": 85, "status": "Good"}
+        alerts = {"alerts": []}
+
+        # Company profile lookup (shared with dashboard logic)
+        company = {
+            "company": "GCC TECHNOLOGY",
+            "address1": "123 Tech Street",
+            "address2": "",
+            "city": "Tech City",
+            "state": "TC",
+            "zip": "12345",
+            "phone": "(555) 123-4567",
+            "email": "support@gcc.com",
+            "website": "www.gcc.com"
+        }
+        conn = get_conn()
+        try:
+            row = conn.execute("SELECT * FROM CompanyProfile LIMIT 1").fetchone()
+            if row is None:
+                row = conn.execute("SELECT * FROM CompanyInfo LIMIT 1").fetchone()
+            if row:
+                row = dict(row)
+                company = {
+                    "company": row.get("company_name") or row.get("name") or row.get("company") or company["company"],
+                    "address1": row.get("address1") or "",
+                    "address2": row.get("address2") or "",
+                    "city": row.get("city") or "",
+                    "state": row.get("state") or "",
+                    "zip": row.get("zip") or "",
+                    "phone": row.get("phone") or row.get("fax") or company.get("phone"),
+                    "email": row.get("email") or company.get("email"),
+                    "service_email": row.get("service_email") or row.get("email") or "",
+                    "business_license": row.get("business_license") or "",
+                    "website": row.get("website") or company.get("website"),
+                }
+        except Exception:
+            pass
+        finally:
+            conn.close()
+
+        ticket_no = _generate_ticket_no(call.get('ID', 0))
+        pdf_path, pdf_bytes = generate_service_order_pdf(ticket_no, data, health, alerts, company)
+
+        # Offer user choice: preview/print or download
+        pdf_b64 = base64.b64encode(pdf_bytes).decode("ascii")
+
+        with ui.dialog() as dlg, ui.card().classes("gcc-card p-4 max-w-xl"):
+            ui.label(f"Service Ticket #{call.get('ID', '—')} PDF Ready").classes("text-lg font-bold")
+            ui.label(os.path.basename(pdf_path)).classes("text-sm gcc-muted mb-2")
+
+            with ui.row().classes("gap-2 mt-2 justify-end"):
+                ui.button("Open & Print", icon="print", on_click=lambda: ui.run_javascript(
+                    "(function(){const b64='" + pdf_b64 + "';"+
+                    "const byteChars=atob(b64);const byteNums=new Array(byteChars.length);"+
+                    "for(let i=0;i<byteChars.length;i++){byteNums[i]=byteChars.charCodeAt(i);}"+
+                    "const byteArray=new Uint8Array(byteNums);const blob=new Blob([byteArray],{type:'application/pdf'});"+
+                    "const url=URL.createObjectURL(blob);const w=window.open(url,'_blank');"+
+                    "if(w){setTimeout(()=>{w.print();},500);}})();"
+                )).props("color=blue")
+                ui.button("Download PDF", icon="download", on_click=lambda: ui.download(pdf_bytes, filename=os.path.basename(pdf_path))).props("color=green")
+                ui.button("Close", on_click=lambda: dlg.close()).props("flat")
+
+        dlg.open()
+        ui.notify("PDF generated", type="positive")
+    except Exception as e:
+        ui.notify(f"PDF generation failed: {e}", type="negative")
 
 
 def show_print_form(title: str, description: str, materials: str, labor: str, priority: str, status: str):
@@ -442,13 +558,20 @@ def show_print_all(search_term: str, status: str, priority: str, customer_id: Op
                         with ui.row().classes("items-center justify-between mb-2"):
                             ui.label(f"#{call['ID']} - {call.get('title', 'Untitled')}").classes("text-sm font-bold flex-1")
                             ui.label(f"{call.get('status', '—')} | {call.get('priority', '—')}").classes("text-xs")
-                        
+
                         # Details row
-                        with ui.grid(columns=4).classes("gap-2 text-xs"):
-                            ui.label(f"Customer: {call.get('customer', 'N/A')}")
-                            ui.label(f"Location: {call.get('location', 'N/A')}")
-                            unit_txt = f"RTU-{call.get('unit_id')}" if call.get("unit_id") else "—"
+                        with ui.grid(columns=5).classes("gap-2 text-xs"):
+                            ui.label(f"Customer: {call.get('customer_name') or call.get('customer') or 'N/A'}")
+                            ui.label(f"Location: {call.get('location_address') or call.get('location') or 'N/A'}")
+                            eq_type = call.get('equipment_type', 'RTU')
+                            unit_txt = f"{eq_type}-{call.get('unit_id')}" if call.get("unit_id") else (call.get('unit_name') or "—")
                             ui.label(f"Unit: {unit_txt}")
+                            specs = []
+                            if call.get('tonnage'):
+                                specs.append(f"{call.get('tonnage')}T")
+                            if call.get('refrigerant_type'):
+                                specs.append(call.get('refrigerant_type'))
+                            ui.label(f"Specs: {' | '.join(specs) if specs else '—'}")
                             ui.label(f"Created: {(call.get('created') or '')[:10]}")
         
         ui.separator().classes("my-4")

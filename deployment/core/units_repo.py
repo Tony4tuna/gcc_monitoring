@@ -1,111 +1,170 @@
-# core/units_repo.py
-# Repo with unit_id auto-generated, unit_tag added
+# ---------------------------------------------------------
+# Units Repository
+# CRUD operations for HVAC equipment units
+# ---------------------------------------------------------
 
-from typing import Any, Dict, List, Optional
+from typing import List, Dict, Any, Optional
 from core.db import get_conn
 
-def _dicts(rows):
-    return [dict(r) for r in rows]
+
+print(">>> LOADED units_repo.py FROM:", __file__)
+
+
+# ---------------------------------------------------------
+# LIST UNITS (used by Equipment page)
+# ---------------------------------------------------------
 
 def list_units(search: str = "", location_id: Optional[int] = None) -> List[Dict[str, Any]]:
-    search = (search or "").strip()
-    like = f"%{search}%"
-    sql = """
-    SELECT unit_id, unit_tag, location_id, make, model, serial, note_id, inst_date, 
-           equipment_type, refrigerant_type, voltage, amperage, btu_rating, tonnage, 
-           breaker_size, warranty_end_date, created
+    query = """
+    SELECT *
     FROM Units
     WHERE 1=1
     """
     params = []
-    if location_id is not None:
-        sql += " AND location_id = ?"
+
+    if location_id:
+        query += " AND location_id = ?"
         params.append(location_id)
+
     if search:
-        sql += """
-        AND (make LIKE ? OR model LIKE ? OR serial LIKE ? OR unit_tag LIKE ?
-             OR CAST(unit_id AS TEXT) LIKE ?)
+        query += """
+        AND (
+            unit_tag LIKE ?
+            OR make LIKE ?
+            OR model LIKE ?
+            OR serial LIKE ?
+        )
         """
-        params.extend([like] * 5)
-    sql += " ORDER BY unit_id DESC"
+        s = f"%{search}%"
+        params.extend([s, s, s, s])
+
+    query += " ORDER BY unit_id"
+
     with get_conn() as conn:
-        rows = conn.execute(sql, params).fetchall()
-        return _dicts(rows)
+        cursor = conn.execute(query, tuple(params))
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+# ---------------------------------------------------------
+# GET SINGLE UNIT BY ID (🔥 REQUIRED BY ISSUE DIALOG)
+# ---------------------------------------------------------
+
+def get_unit_by_id(unit_id: int) -> Optional[Dict[str, Any]]:
+    """
+    Return a single unit by unit_id.
+    Used by Unit Issue Dialog.
+    """
+    query = """
+    SELECT *
+    FROM Units
+    WHERE unit_id = ?
+    """
+    with get_conn() as conn:
+        cursor = conn.execute(query, (unit_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+# ---------------------------------------------------------
+# CREATE UNIT
+# ---------------------------------------------------------
 
 def create_unit(data: Dict[str, Any]) -> int:
-    with get_conn() as conn:
-        cur = conn.execute(
-            """
-            INSERT INTO Units (location_id, make, model, serial, note_id, inst_date, unit_tag,
-                             equipment_type, refrigerant_type, voltage, amperage, btu_rating, 
-                             tonnage, breaker_size, warranty_end_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                int(data["location_id"]),
-                data.get("make", "").strip(),
-                data.get("model", "").strip(),
-                data.get("serial", "").strip(),
-                data.get("note_id"),
-                data.get("inst_date", "").strip(),
-                data.get("unit_tag", "").strip(),
-                data.get("equipment_type", "RTU").strip(),
-                data.get("refrigerant_type", "").strip(),
-                data.get("voltage", "").strip(),
-                data.get("amperage", "").strip(),
-                data.get("btu_rating", "").strip(),
-                data.get("tonnage", "").strip(),
-                data.get("breaker_size", "").strip(),
-                data.get("warranty_end_date", "").strip(),
-            ),
-        )
-        conn.commit()
-        return cur.lastrowid  # auto-generated unit_id
+    query = """
+    INSERT INTO Units (
+        location_id,
+        unit_tag,
+        equipment_type,
+        make,
+        model,
+        serial,
+        refrigerant_type,
+        voltage,
+        amperage,
+        btu_rating,
+        tonnage,
+        breaker_size,
+        inst_date,
+        warranty_end_date,
+        note_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
 
-def update_unit(unit_id: int, data: Dict[str, Any]) -> None:
-    with get_conn() as conn:
-        conn.execute(
-            """
-            UPDATE Units SET
-                location_id = ?,
-                make = ?,
-                model = ?,
-                serial = ?,
-                note_id = ?,
-                inst_date = ?,
-                unit_tag = ?,
-                equipment_type = ?,
-                refrigerant_type = ?,
-                voltage = ?,
-                amperage = ?,
-                btu_rating = ?,
-                tonnage = ?,
-                breaker_size = ?,
-                warranty_end_date = ?
-            WHERE unit_id = ?
-            """,
-            (
-                int(data["location_id"]),
-                data.get("make", "").strip(),
-                data.get("model", "").strip(),
-                data.get("serial", "").strip(),
-                data.get("note_id"),
-                data.get("inst_date", "").strip(),
-                data.get("unit_tag", "").strip(),
-                data.get("equipment_type", "RTU").strip(),
-                data.get("refrigerant_type", "").strip(),
-                data.get("voltage", "").strip(),
-                data.get("amperage", "").strip(),
-                data.get("btu_rating", "").strip(),
-                data.get("tonnage", "").strip(),
-                data.get("breaker_size", "").strip(),
-                data.get("warranty_end_date", "").strip(),
-                int(unit_id),
-            ),
-        )
-        conn.commit()
+    params = (
+        data.get("location_id"),
+        data.get("unit_tag"),
+        data.get("equipment_type"),
+        data.get("make"),
+        data.get("model"),
+        data.get("serial"),
+        data.get("refrigerant_type"),
+        data.get("voltage"),
+        data.get("amperage"),
+        data.get("btu_rating"),
+        data.get("tonnage"),
+        data.get("breaker_size"),
+        data.get("inst_date"),
+        data.get("warranty_end_date"),
+        data.get("note_id"),
+    )
 
-def delete_unit(unit_id: int) -> None:
     with get_conn() as conn:
-        conn.execute("DELETE FROM Units WHERE unit_id = ?", (unit_id,))
+        cursor = conn.execute(query, params)
         conn.commit()
+        return cursor.lastrowid
+
+
+# ---------------------------------------------------------
+# UPDATE UNIT
+# ---------------------------------------------------------
+
+def update_unit(unit_id: int, data: Dict[str, Any]) -> bool:
+    fields = []
+    params = []
+
+    allowed_fields = [
+        "location_id",
+        "unit_tag",
+        "equipment_type",
+        "make",
+        "model",
+        "serial",
+        "refrigerant_type",
+        "voltage",
+        "amperage",
+        "btu_rating",
+        "tonnage",
+        "breaker_size",
+        "inst_date",
+        "warranty_end_date",
+        "note_id",
+    ]
+
+    for field in allowed_fields:
+        if field in data:
+            fields.append(f"{field} = ?")
+            params.append(data[field])
+
+    if not fields:
+        return False
+
+    query = f"UPDATE Units SET {', '.join(fields)} WHERE unit_id = ?"
+    params.append(unit_id)
+
+    with get_conn() as conn:
+        cursor = conn.execute(query, tuple(params))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+# ---------------------------------------------------------
+# DELETE UNIT
+# ---------------------------------------------------------
+
+def delete_unit(unit_id: int) -> bool:
+    query = "DELETE FROM Units WHERE unit_id = ?"
+    with get_conn() as conn:
+        cursor = conn.execute(query, (unit_id,))
+        conn.commit()
+        return cursor.rowcount > 0

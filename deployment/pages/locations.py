@@ -3,14 +3,16 @@ from core.auth import require_login, is_admin
 from ui.layout import layout
 from core.customers_repo import list_customers
 from core.locations_repo import list_locations, create_location, update_location, delete_location
+from core.logger import log_user_action, handle_error
 
 def page():
     if not require_login():
         return
 
+    log_user_action("Viewed Locations Page")
     can_edit = is_admin()
 
-    with layout("Locations"):
+    with layout("Locations", show_logout=True, show_back=True, back_to="/"):
 
         ui.add_head_html("""
         <style>
@@ -31,7 +33,8 @@ def page():
             for c in customers
         }
 
-        with ui.row().classes("gap-3 w-full items-center flex-wrap"):
+        # Toolbar
+        with ui.row().classes("gap-3 w-full items-center flex-wrap mb-4"):
             ui.label("Client:").classes("font-semibold")
             customer_id = ui.select(options=options).classes("w-[520px]")
             if customers:
@@ -43,24 +46,26 @@ def page():
             ui.button("Edit", on_click=lambda: open_location_dialog("edit")).props(f"dense {'disable' if not can_edit else ''}")
             ui.button("Delete", on_click=lambda: open_location_dialog("delete")).props(f"dense color=negative outline {'disable' if not can_edit else ''}")
 
-        table = ui.table(
-            columns=[
-                {"name": "ID", "label": "ID", "field": "ID"},
-                {"name": "address1", "label": "Address 1", "field": "address1"},
-                {"name": "city", "label": "City", "field": "city"},
-                {"name": "state", "label": "State", "field": "state"},
-                {"name": "zip", "label": "Zip", "field": "zip"},
-                {"name": "contact", "label": "Contact", "field": "contact"},
-                {"name": "job_phone", "label": "Job Phone", "field": "job_phone"},
-                {"name": "res", "label": "Res", "field": "res"},
-                {"name": "com", "label": "Com", "field": "com"},
-            ],
-            rows=[],
-            row_key="ID",
-            selection="single",
-            pagination={"rowsPerPage": 25, "options": [10, 25, 50, 100]},
-        ).classes("w-full gcc-card rounded-lg overflow-hidden gcc-soft-grid")
-        table.props("dense bordered separator-cell")
+        # Table with fixed height
+        with ui.card().classes("gcc-card").style("height: calc(100vh - 380px); display: flex; flex-direction: column;"):
+            table = ui.table(
+                columns=[
+                    {"name": "ID", "label": "ID", "field": "ID"},
+                    {"name": "address1", "label": "Address 1", "field": "address1"},
+                    {"name": "city", "label": "City", "field": "city"},
+                    {"name": "state", "label": "State", "field": "state"},
+                    {"name": "zip", "label": "Zip", "field": "zip"},
+                    {"name": "contact", "label": "Contact", "field": "contact"},
+                    {"name": "job_phone", "label": "Job Phone", "field": "job_phone"},
+                    {"name": "res", "label": "Res", "field": "res"},
+                    {"name": "com", "label": "Com", "field": "com"},
+                ],
+                rows=[],
+                row_key="ID",
+                selection="single",
+                pagination={"rowsPerPage": 15},
+            ).classes("w-full").style("flex: 1; min-height: 0;")
+            table.props("dense bordered virtual-scroll")
 
         def refresh():
             if not customer_id.value:

@@ -1,17 +1,18 @@
 from nicegui import ui
-from core.auth import require_login, is_admin
+from core.auth import require_login, is_admin, logout
 from ui.layout import layout
 from core.customers_repo import list_customers, create_customer, update_customer, delete_customer
-from core.auth import logout  # ← add this import at top
+from core.logger import log_user_action, log_error, handle_error
 
 def page():
     if not require_login():
         return
 
+    log_user_action("Viewed Clients Page")
     can_edit = is_admin()
 
-    with layout("Clients"):
-        ui.button("Logout", on_click=lambda: (logout(), ui.navigate.to("/login"))).props("dense flat color=negative")
+    with layout("Clients", show_logout=True, show_back=True, back_to="/"):
+        # Removed duplicate logout button - now in layout sidebar
         ui.add_head_html("""
         <style>
           .gcc-soft-grid .q-table__middle table td,
@@ -25,30 +26,33 @@ def page():
         </style>
         """)
 
-        with ui.row().classes("gap-3 w-full items-center flex-wrap"):
+        # Toolbar
+        with ui.row().classes("gap-3 w-full items-center flex-wrap mb-4"):
             search = ui.input("Search (company, name, email, phone)").classes("w-96")
-            ui.button("Refresh", on_click=lambda: refresh()).props("outline dense")
+            ui.button("Refresh", icon="refresh", on_click=lambda: refresh()).props("outline dense").tooltip("Reload client list")
             ui.space()
-            ui.button("Add Client", on_click=lambda: open_customer_dialog("add")).props(f"dense color=primary {'disable' if not can_edit else ''}")
-            ui.button("Edit", on_click=lambda: open_customer_dialog("edit")).props(f"dense {'disable' if not can_edit else ''}")
-            ui.button("Delete", on_click=lambda: open_customer_dialog("delete")).props(f"dense color=negative outline {'disable' if not can_edit else ''}")
+            ui.button("Add Client", icon="add", on_click=lambda: open_customer_dialog("add")).props(f"dense color=primary {'disable' if not can_edit else ''}").tooltip("Create a new client")
+            ui.button("Edit", icon="edit", on_click=lambda: open_customer_dialog("edit")).props(f"dense {'disable' if not can_edit else ''}").tooltip("Edit selected client")
+            ui.button("Delete", icon="delete", on_click=lambda: open_customer_dialog("delete")).props(f"dense color=negative outline {'disable' if not can_edit else ''}").tooltip("Delete selected client")
 
-        table = ui.table(
-            columns=[
-                {"name": "ID", "label": "ID", "field": "ID"},
-                {"name": "company", "label": "Company", "field": "company"},
-                {"name": "name", "label": "Name", "field": "name"},
-                {"name": "email", "label": "Email", "field": "email"},
-                {"name": "phone1", "label": "Phone", "field": "phone1"},
-                {"name": "city", "label": "City", "field": "city"},
-                {"name": "state", "label": "State", "field": "state"},
-            ],
-            rows=[],
-            row_key="ID",
-            selection="single",
-            pagination={"rowsPerPage": 25, "options": [10, 25, 50, 100]},
-        ).classes("w-full gcc-card rounded-lg overflow-hidden gcc-soft-grid")
-        table.props("dense bordered separator-cell")
+        # Table with fixed height
+        with ui.card().classes("gcc-card").style("height: calc(100vh - 350px); display: flex; flex-direction: column;"):
+            table = ui.table(
+                columns=[
+                    {"name": "ID", "label": "ID", "field": "ID"},
+                    {"name": "company", "label": "Company", "field": "company"},
+                    {"name": "name", "label": "Name", "field": "name"},
+                    {"name": "email", "label": "Email", "field": "email"},
+                    {"name": "phone1", "label": "Phone", "field": "phone1"},
+                    {"name": "city", "label": "City", "field": "city"},
+                    {"name": "state", "label": "State", "field": "state"},
+                ],
+                rows=[],
+                row_key="ID",
+                selection="single",
+                pagination={"rowsPerPage": 15},
+            ).classes("w-full").style("flex: 1; min-height: 0;")
+            table.props("dense bordered virtual-scroll")
 
         def refresh():
             rows = list_customers(search.value or "")

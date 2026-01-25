@@ -1,0 +1,18 @@
+# Manual Nginx Update Commands
+# Run these on the server as tony user
+
+# 1. Backup current Nginx config
+sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.backup
+
+# 2. Update proxy_pass to port 8000 (run ONE of these based on current config):
+sudo sed -i 's/proxy_pass http:\/\/127\.0\.0\.1:8080/proxy_pass http:\/\/127.0.0.1:8000/g' /etc/nginx/sites-available/default
+sudo sed -i 's/proxy_pass http:\/\/localhost:8080/proxy_pass http:\/\/localhost:8000/g' /etc/nginx/sites-available/default
+
+# 3. Test config
+sudo nginx -t
+
+# 4. If test passes, reload Nginx
+sudo systemctl reload nginx
+
+# 5. Verify
+curl -I http://localhost

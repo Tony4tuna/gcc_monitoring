@@ -3,6 +3,7 @@
 
 from nicegui import ui
 from core.auth import current_user, require_login
+from core.version import get_build_info
 from ui.layout import layout
 from core.customers_repo import get_customer, update_customer
 
@@ -129,3 +130,60 @@ def page():
             with ui.row().classes("w-full justify-end gap-3 mt-5"):
                 ui.button("Cancel", on_click=lambda: ui.navigate.to("/")).props("flat")
                 ui.button("Save Profile", on_click=save_profile).props("color=positive")
+                ui.button("About", icon="info", on_click=lambda: ui.navigate.to("/about")).props("flat")
+
+
+@ui.page("/about")
+def about_page():
+    """About page with version and build info"""
+    if not require_login():
+        return
+    
+    user = current_user() or {}
+    hierarchy = int(user.get("hierarchy") or 5)
+    
+    info = get_build_info()
+    
+    with layout("About", show_logout=True, hierarchy=hierarchy):
+        with ui.card().classes("gcc-card p-6 max-w-2xl"):
+            ui.label("GCC HVAC Monitoring System").classes("text-2xl font-bold")
+            ui.label(info.get("description", "—")).classes("text-sm gcc-muted mb-4")
+            
+            ui.separator().classes("my-4")
+            
+            with ui.grid(columns=2).classes("gap-4 mb-4"):
+                with ui.column():
+                    ui.label("Version").classes("text-sm font-bold gcc-muted")
+                    ui.label(info.get("version", "1.0.0")).classes("text-lg font-mono")
+                
+                with ui.column():
+                    ui.label("Build Date").classes("text-sm font-bold gcc-muted")
+                    ui.label(info.get("build_date", "—")).classes("text-lg font-mono")
+                
+                with ui.column():
+                    ui.label("Release Date").classes("text-sm font-bold gcc-muted")
+                    ui.label(info.get("release_date", "—")).classes("text-lg font-mono")
+                
+                with ui.column():
+                    ui.label("Status").classes("text-sm font-bold gcc-muted")
+                    ui.label("Active").classes("text-lg font-mono text-green-400")
+            
+            ui.separator().classes("my-4")
+            
+            ui.label("Features").classes("text-lg font-bold mb-2")
+            features = info.get("features", [])
+            if features:
+                with ui.column().classes("gap-1 ml-4"):
+                    for feature in features:
+                        ui.label(f"✓ {feature}").classes("text-sm")
+            else:
+                ui.label("No features listed").classes("text-sm gcc-muted")
+            
+            ui.separator().classes("my-4")
+            
+            ui.label("Company").classes("text-sm font-bold gcc-muted")
+            ui.label("GCC Technology - HVAC Services").classes("text-sm")
+            
+            with ui.row().classes("justify-end mt-6"):
+                ui.button("Back", on_click=lambda: ui.navigate.back()).props("flat")
+

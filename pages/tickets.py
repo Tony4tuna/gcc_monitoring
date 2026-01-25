@@ -95,8 +95,9 @@ def render_calls_list(customer_id: Optional[int] = None, hierarchy: int = 5):
             ui.button("Search", icon="search", on_click=lambda: refresh_calls())
             ui.button("Print All", icon="print", on_click=lambda: show_print_all(search_input.value, status_filter.value, priority_filter.value, customer_id))
     
-    # Calls container
-    calls_container = ui.column().classes("w-full gap-3")
+    # Calls container with fixed height and scroll
+    with ui.card().classes("gcc-card").style("height: calc(100vh - 480px); overflow-y: auto;"):
+        calls_container = ui.column().classes("w-full gap-3")
     
     def refresh_calls():
         calls_container.clear()
@@ -214,7 +215,15 @@ def render_call_card(call: Dict[str, Any], hierarchy: int):
 def show_ticket_detail(ticket: Dict[str, Any]) -> None:
     """Read-only detail dialog for service tickets (matches dashboard view)."""
     with ui.dialog() as dlg, ui.card().classes("gcc-card p-4 w-full max-w-4xl"):
-        ui.label(f"Service Ticket #{ticket.get('ID','—')}").classes("text-lg font-bold")
+        ticket_no = ticket.get('ticket_no') or str(ticket.get('ID', '—'))
+        if '-' in str(ticket_no):
+            date_part, num_part = str(ticket_no).split('-', 1)
+            with ui.row().classes("items-center gap-1"):
+                ui.label("Service Ticket #").classes("text-lg font-bold")
+                ui.label(date_part + "-").classes("text-lg font-bold")
+                ui.label(num_part).classes("text-lg font-bold text-yellow-400")
+        else:
+            ui.label(f"Service Ticket #{ticket_no}").classes("text-lg font-bold")
         ui.label(
             f"Status: {ticket.get('status','—')} | Priority: {ticket.get('priority','—')} | Created: {(ticket.get('created') or '')[:19]}"
         ).classes("text-sm gcc-muted")

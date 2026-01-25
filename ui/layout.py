@@ -1,6 +1,7 @@
 # ui/layout.py
 from nicegui import ui
 from core.auth import current_user, logout
+from core.version import get_version, get_build_info
 
 
 def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: int = None, show_back: bool = False, back_to: str = "/"):
@@ -60,17 +61,41 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
 
       /* Fixed layout container */
       .gcc-page-container {
-        height: calc(100vh - 50px); /* Full height minus header */
+        height: 100vh;
         overflow: hidden;
         display: flex;
         flex-direction: column;
       }
       
-      /* Content wrapper with scroll */
+      /* Content wrapper - fills remaining space */
       .gcc-content-wrapper {
         flex: 1;
         overflow-y: auto;
-        padding: 24px;
+        overflow-x: hidden;
+        padding: 1.5rem;
+        min-height: 0; /* Critical for flex scrolling */
+      }
+      
+      /* Page with table - fixed layout */
+      .gcc-page-with-table {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        gap: 1rem;
+      }
+      
+      /* Toolbar area - fixed height */
+      .gcc-page-toolbar {
+        flex-shrink: 0;
+      }
+      
+      /* Table container - grows to fill */
+      .gcc-page-table-container {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
       }
       
       /* Grid container with fixed height */
@@ -85,25 +110,43 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
       /* Table wrapper with internal scroll */
       .gcc-table-wrapper {
         flex: 1;
-        overflow: auto;
+        min-height: 0;
+        overflow: hidden;
         border: 1px solid var(--border);
         border-radius: 8px;
         background: var(--card);
+        display: flex;
+        flex-direction: column;
       }
       
       /* Fixed table with internal scroll */
       .gcc-fixed-table {
-        height: 100%;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
       }
       
       .gcc-fixed-table .q-table__container {
-        height: 100%;
+        height: 100% !important;
         max-height: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+      
+      .gcc-fixed-table .q-table__top {
+        flex-shrink: 0;
       }
       
       .gcc-fixed-table .q-table__middle {
+        flex: 1 !important;
+        min-height: 0 !important;
         max-height: none !important;
         overflow-y: auto !important;
+        overflow-x: auto !important;
+      }
+      
+      .gcc-fixed-table .q-table__bottom {
+        flex-shrink: 0;
       }
 
       /* Sidebar buttons */
@@ -206,7 +249,8 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
       
       .gcc-dashboard-grid-item {
         background: var(--card);
-        border: 1px solid var(--line);
+        border: 1px solid var(--border);
+        box-shadow: 0 0 0 1px var(--border);
         border-radius: 8px;
         padding: 1rem;
         overflow: hidden;
@@ -240,17 +284,13 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
         }
       }
       
-      /* Scrollable card content */
-      .gcc-scrollable-card {
+      /* Card that fills available height */
+      .gcc-fill-card {
+        flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
-        height: 100%;
         overflow: hidden;
-      }
-      
-      .gcc-scrollable-card .gcc-card-content {
-        flex: 1;
-        overflow: auto;
       }
     </style>
     """)
@@ -273,41 +313,47 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
     # LEFT DRAWER
     # ------------------------------------------------------------
     drawer = ui.left_drawer(value=True).props(
-        "bordered width=260 show-if-above breakpoint=900"
-    ).classes("p-4").style("background: var(--bg);")
+      "bordered width=260 show-if-above breakpoint=900"
+    ).classes("p-4 flex flex-col").style("background: var(--bg);")
 
     with drawer:
-        with ui.row().classes("w-full items-center justify-between"):
-            ui.label("GCC Monitoring").classes("text-xl font-bold")
-            ui.button("☰", on_click=drawer.toggle).props("flat dense")
+        with ui.column().classes("gap-2 h-full w-full"):
+            with ui.row().classes("w-full items-center justify-between"):
+                ui.label("GCC Monitoring").classes("text-xl font-bold")
+                ui.button("☰", on_click=drawer.toggle).props("flat dense")
 
-        ui.label("Navigation").classes("text-xs gcc-muted mt-1")
-        ui.separator().classes("my-2")
+            # CLIENT (hierarchy 4)
+            if hierarchy == 4:
+                ui.label("Client Portal").classes("text-sm gcc-muted mb-2")
 
-        # CLIENT (hierarchy 4)
-        if hierarchy == 4:
-            ui.label("Client Portal").classes("text-sm gcc-muted mb-2")
+                ui.button("Dashboard").props("flat dense").disable()
+                ui.button("Equipment").props("flat dense").disable()
+                ui.button("My Profile").props("flat dense").disable()
 
-            ui.button("Dashboard").props("flat dense").disable()
-            ui.button("Equipment").props("flat dense").disable()
-            ui.button("My Profile").props("flat dense").disable()
+                if show_logout:
+                    ui.separator().classes("my-2")
+                    ui.button("Logout", on_click=confirm_logout).props("outline color=negative")
 
-            if show_logout:
-                ui.separator().classes("my-2")
-                ui.button("Logout", on_click=confirm_logout).props("outline color=negative")
+            # ADMIN / TECH
+            else:
+                with ui.row().classes("items-center gap-2 text-sm gcc-muted mb-1"):
+                    ui.icon("home").classes("text-lg").style("color: var(--text);")
+                    ui.label("Home")
+                ui.button("👥 Clients", on_click=lambda: ui.navigate.to("/clients")).classes("menu-link")
+                ui.button("📍 Locations", on_click=lambda: ui.navigate.to("/locations")).classes("menu-link")
+                ui.button("📦 Equipment", on_click=lambda: ui.navigate.to("/equipment")).classes("menu-link")
+                ui.button("�️ Thermostat", on_click=lambda: ui.navigate.to("/thermostat")).classes("menu-link")
+                ui.button("�🎫 Service Tickets", on_click=lambda: ui.navigate.to("/tickets")).classes("menu-link")
+                ui.button("⚙️ Settings", on_click=lambda: ui.navigate.to("/settings")).classes("menu-link")
 
-        # ADMIN / TECH
-        else:
-            ui.button("🏠 Dashboard", on_click=lambda: ui.navigate.to("/")).classes("menu-link")
-            ui.button("👥 Clients", on_click=lambda: ui.navigate.to("/clients")).classes("menu-link")
-            ui.button("📍 Locations", on_click=lambda: ui.navigate.to("/locations")).classes("menu-link")
-            ui.button("📦 Equipment", on_click=lambda: ui.navigate.to("/equipment")).classes("menu-link")
-            ui.button("🎫 Service Tickets", on_click=lambda: ui.navigate.to("/tickets")).classes("menu-link")
-            ui.button("⚙️ Settings", on_click=lambda: ui.navigate.to("/settings")).classes("menu-link")
+                if show_logout:
+                    ui.separator().classes("my-2")
+                    ui.button("🚪 Logout", on_click=confirm_logout, color="negative").classes("menu-link")
 
-            if show_logout:
-                ui.separator().classes("my-2")
-                ui.button("🚪 Logout", on_click=confirm_logout, color="negative").classes("menu-link")
+            ui.element("div").style("flex: 1 1 auto;")
+            ui.separator().classes("my-2")
+            build = get_build_info()
+            ui.label(f"v{get_version()} • {build.get('build_date', '—')}").classes("text-xs gcc-muted")
 
     # ------------------------------------------------------------
     # HEADER

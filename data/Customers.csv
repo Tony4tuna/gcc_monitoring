@@ -1,0 +1,10 @@
+ID,First Name,Last Name,Company,Contact,Address 1,Address 2,City,State,Zip,Phone 1,Phone 2,Notes,IDstring,CSR,Referral,Credit Status,Created,Email,Website,Mobile,Fax,Extension1,Extension2,FlagAndLock
+10006,Chelsea,Schubert,Planet Fitness,Chelsea Schubert,1662 Elm Street,,Manchester ,NH,03101,(603) 629-5992,,,10006,Default Emp (0),Other,Normal,2017-09-27 00:00:00,chelsea@anagnost.com,,,,,,0
+10007,Gary ,Spindler,Park It,,"250 West 26th Street , 4th Floor",,New York,NY,10001,,,,10007,Fortuna (001),Other,Normal,2017-09-27 00:00:00,gary@parkitNY.com,,(917) 682-4126,,,,0
+10008,Eden,Kongoli,Oster Properties ,Eden Kongoli,429 Sylvan Avenue,,Englewood Cliffs,NJ,07632,(201) 567-0070,,,10008,Default Emp (0),Other,Normal,2017-09-27 00:00:00,ekongoli@osterproperties.com,,(201) 888-7898,(201) 567-2428,,,0
+10009,Lou,Alba,Building Concepts Inc,Lou,"300 Broadway , Ste B",,Bethpage,NY,11714,(516) 334-4500,,,10009,Fortuna (001),Other,Normal,2017-10-13 00:00:00,lalba@bldg-conceptsinc.com,,,,,,0
+10010,Christian,----------,Color Curated LLC,,197 Havemayer Street,2nd Floor,Brooklyn,NY,10314,,,,10010,Fortuna (001),Other,Normal,2017-11-08 00:00:00,xpmechanical@gmail.com,,,,,,0
+10011,Paola, Lomba ,"Paola Lomba , DDS",Paola,32-61 85th Street,,East Elmhurst,NY,11370,(718) 397-100,,,10011,Fortuna (001),Other,Normal,2018-01-28 00:00:00,,,,,,,0
+10012,John,Ferrell,Farrell Contracting Solutions,John ,37 Spruce Avenue,,Ridgefield Park,NJ,07660,(201) 440-8595,(201) 440-6768,,10012,Fortuna (001),Other,Normal,2018-02-28 00:00:00,John Farrell <Johnf@farrellcontractingsolutions.com>,,,,,,0
+10013,Alexandra,Lerner,,Alex,2038 Madison Avenue,,New York,NY,10035,(917) 991-9056,,,10013,Fortuna (001),Other,Normal,2018-10-19 00:00:00,ABOVE110ALEX@gmail.com,,,,,,0
+10014,Azra,Sitt,212 Court Realty LLC,Azra,212 Court  Street,,Brooklyn,NY,11201,(718) 490-2525,,,10014,Fortuna (001),Other,Normal,2020-07-01 00:00:00,,,,,,,0

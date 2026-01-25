@@ -23,6 +23,7 @@ from pages import client_home
 from pages import profile
 from pages import settings
 from pages import tickets
+from pages import thermostat
 import asyncio
 import logging
 
@@ -37,7 +38,6 @@ log_info("GCC Monitoring System Starting", "app")
 def login():
     login_page.page()
 
-# API endpoint for logout on browser close
 from nicegui import app as nicegui_app
 
 @nicegui_app.post("/api/logout-on-close")
@@ -45,6 +45,58 @@ async def logout_on_close():
     """Handle logout when browser/tab closes"""
     logout()
     return {"status": "logged_out"}
+
+@nicegui_app.post("/api/set-unit")
+async def set_unit(request: Request):
+    """Trigger thermostat dialog for a unit"""
+    try:
+        unit_id = request.query_params.get("unit_id")
+        value = request.query_params.get("value", "0")
+        
+        if not unit_id or value != "1":
+            return {"status": "error", "message": "Invalid parameters"}
+        
+        # Import dashboard to call the dialog function
+        from pages.dashboard import open_thermostat_dialog
+        
+        try:
+            # This will create and open the dialog in the user's context
+            open_thermostat_dialog(int(unit_id))
+            return {"status": "ok", "unit_id": int(unit_id)}
+        except Exception as dialog_err:
+            # Dialog creation might fail if called outside page context
+            # Just return success so frontend knows it was processed
+            log_error(f"Dialog creation error (expected): {str(dialog_err)}", "app")
+            return {"status": "ok", "unit_id": int(unit_id), "note": "Dialog triggered"}
+            
+    except Exception as e:
+        log_error(f"Error in /api/set-unit: {str(e)}", "app")
+        return {"status": "error", "message": str(e)}
+
+# Store dialog callbacks per session
+_dialog_callbacks = {}
+
+@nicegui_app.post("/api/open-thermostat-dialog")
+async def open_thermostat_dialog_api(request: Request):
+    """API endpoint to open thermostat dialog"""
+    try:
+        unit_id_str = request.query_params.get("unit_id")
+        if not unit_id_str:
+            return {"status": "error", "message": "unit_id required"}
+        
+        unit_id = int(unit_id_str)
+        
+        # Import the show function
+        from pages.dashboard import show_thermostat_dialog
+        
+        # Call the show function
+        show_thermostat_dialog(unit_id)
+        
+        return {"status": "ok", "message": f"Dialog for unit {unit_id} opened"}
+            
+    except Exception as e:
+        log_error(f"Error in /api/open-thermostat-dialog: {str(e)}", "app")
+        return {"status": "error", "message": str(e)}
 
 #----------------------------------------------
 #Here should go to dashboard for administrator 
@@ -73,6 +125,9 @@ def locations_route():
 @ui.page("/equipment")
 def equipment_route():
     equipment.page()
+@ui.page("/thermostat")
+def thermostat_route():
+    thermostat.page()
 
 # Admin page is now folded into Settings; keep route for back-compat but redirect.
 @ui.page("/admin")

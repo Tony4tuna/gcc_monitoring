@@ -40,22 +40,22 @@ def show_notification(message: str, notification_type: str = "info"):
 def create_company_profile_tab() -> ui.card:
     """Create company profile settings tab"""
     with ui.card() as card:
-        with ui.column().classes("w-full gap-4"):
-            ui.label("Company Profile").classes("text-xl font-bold")
+        with ui.column().classes("w-full gap-1"):
+            ui.label("Company Profile").classes("text-lg font-bold")
             
             company = get_company_profile()
             
             # Form grid
-            with ui.column().classes("w-full gap-4"):
+            with ui.column().classes("w-full gap-1"):
                 fields = {}
 
-                with ui.row().classes("w-full gap-4"):
+                with ui.row().classes("w-full gap-1"):
                     fields["name"] = ui.input(label="Company Name", value=company.get("name", "")).classes("flex-1")
                     fields["website"] = ui.input(label="Website", value=company.get("website", "")).classes("flex-1")
 
                 fields["logo_path"] = ui.input(label="Logo URL", value=company.get("logo_path", "")).classes("w-full")
                 
-                logo_preview = ui.image("").classes("w-32 h-32 object-contain border border-gray-700 rounded mt-2")
+                logo_preview = ui.image("").classes("w-20 h-20 object-contain border border-gray-700 rounded mt-1")
                 if company.get("logo_path"):
                     logo_preview.source = company.get("logo_path")
                     logo_preview.visible = True
@@ -72,27 +72,27 @@ def create_company_profile_tab() -> ui.card:
                 
                 fields["logo_path"].on_value_change(lambda _: update_logo_preview())
                 
-                with ui.row().classes("w-full gap-4"):
+                with ui.row().classes("w-full gap-1"):
                     fields["phone"] = ui.input(label="Phone", value=company.get("phone", "")).classes("flex-1")
                     fields["fax"] = ui.input(label="Fax", value=company.get("fax", "")).classes("flex-1")
                 
-                with ui.row().classes("w-full gap-4"):
+                with ui.row().classes("w-full gap-1"):
                     fields["email"] = ui.input(label="Email", value=company.get("email", "")).classes("flex-1")
                     fields["service_email"] = ui.input(label="Service Email", value=company.get("service_email", "")).classes("flex-1")
                 
                 fields["owner_email"] = ui.input(label="Owner Email", value=company.get("owner_email", "")).classes("w-full")
                 
-                with ui.row().classes("w-full gap-4"):
+                with ui.row().classes("w-full gap-1"):
                     fields["address1"] = ui.input(label="Address 1", value=company.get("address1", "")).classes("flex-1")
                     fields["address2"] = ui.input(label="Address 2", value=company.get("address2", "")).classes("flex-1")
                 
-                with ui.row().classes("w-full gap-4"):
+                with ui.row().classes("w-full gap-1"):
                     fields["city"] = ui.input(label="City", value=company.get("city", "")).classes("flex-1")
                     fields["state"] = ui.input(label="State", value=company.get("state", "")).classes("flex-1")
                     fields["zip"] = ui.input(label="Zip", value=company.get("zip", "")).classes("flex-1")
                 
                 # Save button
-                ui.button("Save Changes", on_click=lambda: save_company_profile(fields)).classes("mt-4 bg-blue-600 hover:bg-blue-700")
+                ui.button("Save Changes", on_click=lambda: save_company_profile(fields)).classes("mt-2 bg-blue-600 hover:bg-blue-700 w-40")
     
     return card
 
@@ -114,17 +114,17 @@ def save_company_profile(fields: dict):
 def create_email_settings_tab() -> ui.card:
     """Create email/SMTP settings tab"""
     with ui.card() as card:
-        with ui.column().classes("w-full gap-4"):
+        with ui.column().classes("w-full gap-2"):
             ui.label("Email / SMTP Settings").classes("text-xl font-bold")
             
             email_settings = get_email_settings()
             
-            with ui.column().classes("w-full gap-4"):
-                with ui.row().classes("w-full gap-4"):
+            with ui.column().classes("w-full gap-2"):
+                with ui.row().classes("w-full gap-2"):
                     ui.input(label="SMTP Host", value=email_settings.get("smtp_host", "")).classes("flex-1")
                     ui.number(label="SMTP Port", value=email_settings.get("smtp_port", 587)).classes("flex-1")
                 
-                with ui.row().classes("w-full gap-4"):
+                with ui.row().classes("w-full gap-2"):
                     ui.input(label="SMTP Username", value=email_settings.get("smtp_user", "")).classes("flex-1")
                     ui.input(label="SMTP Password", password=True, 
                             value=email_settings.get("smtp_pass", "")).classes("flex-1")
@@ -178,11 +178,11 @@ def test_email_connection():
 def create_employee_profile_tab() -> ui.card:
     """Create employee profile management tab"""
     with ui.card() as card:
-        with ui.column().classes("w-full gap-4"):
+        with ui.column().classes("w-full gap-2"):
             ui.label("Employee Directory").classes("text-xl font-bold")
             
             # Search and action buttons
-            with ui.row().classes("w-full gap-2 items-center"):
+            with ui.row().classes("w-full gap-1 items-center"):
                 search_input = ui.input(placeholder="Search employees...").classes("flex-1")
                 ui.button("+ Add Employee", on_click=lambda: show_employee_dialog(card, None)).classes("bg-green-600 hover:bg-green-700")
             
@@ -313,12 +313,12 @@ def save_employee(employee_id, emp_id, first_name, last_name, department, positi
 def create_service_call_settings_tab() -> ui.card:
     """Create service call settings tab"""
     with ui.card() as card:
-        with ui.column().classes("w-full gap-4"):
-            ui.label("Service Call Settings").classes("text-xl font-bold")
+        with ui.column().classes("w-full gap-1"):
+            ui.label("Service Call Settings").classes("text-lg font-bold")
             
             sc_settings = get_service_call_settings()
             
-            with ui.column().classes("w-full gap-4"):
+            with ui.column().classes("w-full gap-1"):
                 ui.select(label="Default Priority", 
                     options=["Low", "Normal", "High", "Emergency"],
                     value=sc_settings.get("default_priority", "Normal")).classes("w-full")
@@ -330,19 +330,17 @@ def create_service_call_settings_tab() -> ui.card:
                     options=["round_robin", "by_location", "manual"],
                     value=sc_settings.get("assignment_method", "manual")).classes("w-full")
                 
-                ui.label("SLA Response Times (hours)").classes("font-semibold mt-4")
-                with ui.row().classes("w-full gap-4"):
-                    ui.number(label="Low Priority", value=sc_settings.get("sla_hours_low", 72)).classes("flex-1")
+                ui.label("SLA Response Times (hours)").classes("font-semibold text-sm mt-1 mb-1")
+                with ui.row().classes("w-full gap-1"):
+                    ui.number(label="Low", value=sc_settings.get("sla_hours_low", 72)).classes("flex-1")
                     ui.number(label="Normal", value=sc_settings.get("sla_hours_normal", 48)).classes("flex-1")
                     ui.number(label="High", value=sc_settings.get("sla_hours_high", 24)).classes("flex-1")
                     ui.number(label="Emergency", value=sc_settings.get("sla_hours_emergency", 4)).classes("flex-1")
                 
-                ui.checkbox(text="Send notification on service call creation",
-                    value=bool(sc_settings.get("notification_on_create", 1)))
-                ui.checkbox(text="Send notification on service call closure",
-                    value=bool(sc_settings.get("notification_on_close", 1)))
+                ui.checkbox(text="Notify on creation", value=bool(sc_settings.get("notification_on_create", 1)))
+                ui.checkbox(text="Notify on closure", value=bool(sc_settings.get("notification_on_close", 1)))
                 
-                ui.button("Save Changes", on_click=lambda: save_service_call_settings(card)).classes("mt-4 bg-blue-600 hover:bg-blue-700")
+                ui.button("Save Changes", on_click=lambda: save_service_call_settings(card)).classes("mt-2 bg-blue-600 hover:bg-blue-700 w-40")
     
     return card
 
@@ -549,9 +547,9 @@ def create_admin_tab() -> ui.card:
             with ui.row().classes("w-full gap-6"):
                 # Left: Users list
                 with ui.column().classes("flex-1"):
-                    ui.label("Users / Logins").classes("font-bold")
+                    ui.label("Users / Logins").classes("font-bold text-sm")
                     
-                    with ui.card().classes("gcc-card gcc-scrollable-card mt-2"):
+                    with ui.card().classes("gcc-card gcc-scrollable-card mt-1"):
                         logins_table = ui.table(
                             columns=[
                                 {"name": "login_id", "label": "Login", "field": "login_id"},
@@ -562,28 +560,28 @@ def create_admin_tab() -> ui.card:
                             rows=[],
                             row_key="login_db_id",
                             selection="single",
-                            pagination={"rowsPerPage": 10},
-                        ).classes("gcc-fixed-table")
+                            pagination={"rowsPerPage": 8},
+                        ).classes("gcc-fixed-table text-sm")
                     
-                    with ui.row().classes("gap-2 mt-2"):
-                        btn_add = ui.button("ADD", color="positive")
-                        btn_delete = ui.button("DELETE", color="negative")
+                    with ui.row().classes("gap-1 mt-1"):
+                        btn_add = ui.button("ADD", color="positive").props("dense")
+                        btn_delete = ui.button("DELETE", color="negative").props("dense")
                 
                 # Right: Edit panel
                 with ui.column().classes("flex-1"):
-                    ui.label("Edit Selected Login").classes("font-bold")
+                    ui.label("Edit Selected Login").classes("font-bold text-sm")
                     
-                    selected_title = ui.label("Selected: (none)").classes("text-sm mb-2")
+                    selected_title = ui.label("Selected: (none)").classes("text-xs mb-1")
                     
-                    login_id_readonly = ui.input("Login ID").props("readonly").classes("w-full")
-                    role_sel = ui.select({k: v for k, v in ROLE_OPTIONS}, label="Role").classes("w-full")
-                    client_sel = ui.select(clients_map, label="Belongs To (Client)").classes("w-full")
+                    login_id_readonly = ui.input("Login ID").props("readonly dense").classes("w-full")
+                    role_sel = ui.select({k: v for k, v in ROLE_OPTIONS}, label="Role").props("dense").classes("w-full")
+                    client_sel = ui.select(clients_map, label="Belongs To").props("dense").classes("w-full")
                     active_chk = ui.checkbox("Active")
-                    new_pass = ui.input("Reset Password (optional)", password=True).classes("w-full")
+                    new_pass = ui.input("Reset Password (opt)", password=True).props("dense").classes("w-full")
                     
-                    with ui.row().classes("gap-2 mt-4"):
-                        btn_update = ui.button("UPDATE", color="primary")
-                        btn_clear = ui.button("CLEAR")
+                    with ui.row().classes("gap-1 mt-2"):
+                        btn_update = ui.button("UPDATE", color="primary").props("dense")
+                        btn_clear = ui.button("CLEAR").props("dense")
             
             def set_buttons_enabled():
                 has_sel = bool(state["selected_login_id"])
@@ -752,31 +750,43 @@ def page():
         ui.label("Access Denied: Admin privileges required").classes("text-red-600")
         return
     
-    layout()
-    
-    with ui.tabs().classes("w-full") as tabs:
-        ui.tab("company", label="Company Profile")
-        ui.tab("email", label="Email Settings")
-        ui.tab("employees", label="Employee Profile")
-        ui.tab("service", label="Service Call Settings")
-        ui.tab("tickets", label="Ticket Sequence")
-        ui.tab("admin", label="Admin / Users")
-    
-    with ui.tab_panels(tabs, value="company").classes("w-full"):
-        with ui.tab_panel("company"):
-            create_company_profile_tab()
+    with layout("Settings & Configuration", show_logout=True, show_back=True, back_to="/"):
         
-        with ui.tab_panel("email"):
-            create_email_settings_tab()
+        # Quick Navigation - Compact icon buttons
+        with ui.row().classes("gap-1 mb-3 items-center"):
+            ui.button(icon="business", on_click=lambda: ui.navigate.to("/")).props("dense flat").classes("text-green-500").tooltip("Dashboard")
+            ui.button(icon="people", on_click=lambda: ui.navigate.to("/clients")).props("dense flat").classes("text-blue-500").tooltip("Clients")
+            ui.button(icon="location_on", on_click=lambda: ui.navigate.to("/locations")).props("dense flat").classes("text-orange-500").tooltip("Locations")
+            ui.button(icon="precision_manufacturing", on_click=lambda: ui.navigate.to("/equipment")).props("dense flat").classes("text-purple-500").tooltip("Equipment")
+            ui.button(icon="confirmation_number", on_click=lambda: ui.navigate.to("/tickets")).props("dense flat").classes("text-yellow-500").tooltip("Service Tickets")
+            ui.button(icon="account_circle", on_click=lambda: ui.navigate.to("/profile")).props("dense flat").classes("text-teal-500").tooltip("My Profile")
         
-        with ui.tab_panel("employees"):
-            create_employee_profile_tab()
+        ui.separator().classes("my-2")
         
-        with ui.tab_panel("service"):
-            create_service_call_settings_tab()
+        # Enterprise-style tabs
+        with ui.tabs().classes("w-full") as tabs:
+            ui.tab("company", label="Company", icon="business")
+            ui.tab("email", label="Email", icon="email")
+            ui.tab("employees", label="Employees", icon="badge")
+            ui.tab("service", label="Service", icon="settings")
+            ui.tab("tickets", label="Tickets", icon="confirmation_number")
+            ui.tab("admin", label="Users", icon="admin_panel_settings")
         
-        with ui.tab_panel("tickets"):
-            create_ticket_sequence_tab()
-        
-        with ui.tab_panel("admin"):
-            create_admin_tab()
+        with ui.tab_panels(tabs, value="company").classes("w-full"):
+            with ui.tab_panel("company"):
+                create_company_profile_tab()
+            
+            with ui.tab_panel("email"):
+                create_email_settings_tab()
+            
+            with ui.tab_panel("employees"):
+                create_employee_profile_tab()
+            
+            with ui.tab_panel("service"):
+                create_service_call_settings_tab()
+            
+            with ui.tab_panel("tickets"):
+                create_ticket_sequence_tab()
+            
+            with ui.tab_panel("admin"):
+                create_admin_tab()

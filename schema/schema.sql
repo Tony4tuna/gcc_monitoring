@@ -239,3 +239,29 @@ CREATE TABLE IF NOT EXISTS Reports (
   FOREIGN KEY(unit_id) REFERENCES Units(unit_id) ON DELETE SET NULL,
   FOREIGN KEY(requested_by_login_id) REFERENCES Logins(ID) ON DELETE SET NULL
 );
+-- =========================
+-- Unit Setpoint Control & Schedule (thermostat settings)
+-- =========================
+CREATE TABLE IF NOT EXISTS UnitSetpoints (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  unit_id         INTEGER NOT NULL,
+  mode            TEXT,                              -- Off/Cooling/Heating/Auto
+  cooling_setpoint REAL,                             -- Target cooling temperature (°F)
+  heating_setpoint REAL,                             -- Target heating temperature (°F)
+  deadband        REAL,                              -- Temperature differential
+  
+  -- Simple daily schedule (24-hour format)
+  schedule_enabled INTEGER DEFAULT 0,                -- 1 = enabled, 0 = disabled
+  schedule_day    TEXT,                              -- Day of week: Mon/Tue/Wed/Thu/Fri/Sat/Sun or 'Daily'
+  schedule_start_time TEXT,                          -- HH:MM format
+  schedule_end_time   TEXT,                          -- HH:MM format
+  schedule_mode   TEXT,                              -- Mode during schedule time
+  schedule_temp   REAL,                              -- Temperature during schedule
+  
+  updated         TEXT DEFAULT (datetime('now')),
+  updated_by_login_id INTEGER,
+  FOREIGN KEY(unit_id) REFERENCES Units(unit_id) ON DELETE CASCADE,
+  FOREIGN KEY(updated_by_login_id) REFERENCES Logins(ID) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_unitsetpoints_unit_id ON UnitSetpoints(unit_id);

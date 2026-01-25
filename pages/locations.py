@@ -33,7 +33,8 @@ def page():
             for c in customers
         }
 
-        with ui.row().classes("gap-3 w-full items-center flex-wrap"):
+        # Toolbar
+        with ui.row().classes("gap-3 w-full items-center flex-wrap mb-4"):
             ui.label("Client:").classes("font-semibold")
             customer_id = ui.select(options=options).classes("w-[520px]")
             if customers:
@@ -45,7 +46,8 @@ def page():
             ui.button("Edit", on_click=lambda: open_location_dialog("edit")).props(f"dense {'disable' if not can_edit else ''}")
             ui.button("Delete", on_click=lambda: open_location_dialog("delete")).props(f"dense color=negative outline {'disable' if not can_edit else ''}")
 
-        with ui.card().classes("gcc-card gcc-scrollable-card mt-4"):
+        # Table with fixed height
+        with ui.card().classes("gcc-card").style("height: calc(100vh - 380px); display: flex; flex-direction: column;"):
             table = ui.table(
                 columns=[
                     {"name": "ID", "label": "ID", "field": "ID"},
@@ -61,9 +63,9 @@ def page():
                 rows=[],
                 row_key="ID",
                 selection="single",
-                pagination={"rowsPerPage": 10},
-            ).classes("gcc-fixed-table")
-            table.props("dense bordered")
+                pagination={"rowsPerPage": 15},
+            ).classes("w-full").style("flex: 1; min-height: 0;")
+            table.props("dense bordered virtual-scroll")
 
         def refresh():
             if not customer_id.value:

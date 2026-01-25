@@ -95,7 +95,7 @@ Write-Host "🔐 Default Login:" -ForegroundColor Yellow
 Write-Host "   Email: admin" -ForegroundColor White
 Write-Host "   Password: 1931" -ForegroundColor White
 Write-Host ""
-Write-Host "⏹️  To stop the app, press Ctrl + C" -ForegroundColor Yellow
+Write-Host "To stop the app, press Ctrl + C" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Starting application..." -ForegroundColor Cyan
 Write-Host ""
