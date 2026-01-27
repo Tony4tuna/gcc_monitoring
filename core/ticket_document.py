@@ -280,11 +280,12 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     
     created_raw = ticket.get('created') or ""
     date_str = created_raw[:10] if len(created_raw) >= 10 else created_raw or "—"
-    time_str = created_raw[11:19] if len(created_raw) >= 19 else "—"
+    time_str = created_raw[11:19] if len(created_raw) >= 19 else ""
     
     c.drawRightString(right, y_right, f"Date: {date_str}")
-    y_right -= 12
-    c.drawRightString(right, y_right, f"Time: {time_str}")
+    if time_str:
+        y_right -= 12
+        c.drawRightString(right, y_right, f"Time: {time_str}")
     
     # Move y to lowest point
     y = min(y, y_right) - 20

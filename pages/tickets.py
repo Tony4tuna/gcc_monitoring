@@ -1255,9 +1255,13 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
                 "labor_description": labor_input.value
             }
             
-            # Add created date if editing and changed
+            # Add created date if editing and changed; preserve original time if present
             if not is_create and created_input and created_input.value:
-                data["created"] = created_input.value
+                orig_created = call.get("created", "") or ""
+                orig_time = orig_created[11:19] if len(orig_created) >= 19 else ""
+                new_date = created_input.value.strip()
+                combined = f"{new_date} {orig_time}".strip()
+                data["created"] = combined
             
             if is_create:
                 data["requested_by_login_id"] = user.get("login_id") or user.get("ID") if user else None
