@@ -16,6 +16,58 @@ from core.db import get_conn
 
 
 # -------------------------------------------------
+# EMAIL NOTIFICATION HELPER
+# -------------------------------------------------
+
+def _send_ticket_email(call_id: int, call_data: Dict[str, Any]) -> tuple[bool, str]:
+    """Send ticket creation/update email to admin email configured in settings"""
+    try:
+        from core.email_settings import get_email_settings, send_email
+        from core.customers_repo import get_customer
+        from core.locations_repo import get_location
+        
+        settings = get_email_settings()
+        to_email = settings.get("smtp_from")
+        
+        # Silently skip if email not configured
+        if not to_email or not settings.get("smtp_host"):
+            return False, "Email not configured"
+        
+        # Build ticket summary
+        customer = get_customer(call_data.get("customer_id")) if call_data.get("customer_id") else None
+        location = get_location(call_data.get("location_id")) if call_data.get("location_id") else None
+        
+        customer_name = customer.get("company") if customer else f"Customer #{call_data.get('customer_id')}"
+        location_name = location.get("PropertyName") if location else f"Location #{call_data.get('location_id')}"
+        
+        subject = f"[SERVICE TICKET #{call_id}] {call_data.get('title', 'Work Order')}"
+        
+        body = f"""
+NEW SERVICE TICKET CREATED
+
+Ticket #: {call_id}
+Title: {call_data.get('title', 'Work Order')}
+Customer: {customer_name}
+Location: {location_name}
+Status: {call_data.get('status', 'Open')}
+Priority: {call_data.get('priority', 'Normal')}
+
+Materials & Services:
+{call_data.get('materials_services', '(None provided)')}
+
+Labor Description:
+{call_data.get('labor_description', '(None provided)')}
+
+Created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+"""
+        
+        success, msg = send_email(to_email, subject, body)
+        return success, msg
+    except Exception as e:
+        return False, f"Email notification error: {str(e)}"
+
+
+# -------------------------------------------------
 # CORE CRUD (USED BY EXISTING PAGES)
 # -------------------------------------------------
 
@@ -45,7 +97,12 @@ def create_service_call(data: Dict[str, Any]) -> int:
     with get_conn() as conn:
         cur = conn.execute(query, params)
         conn.commit()
-        return cur.lastrowid
+        call_id = cur.lastrowid
+    
+    # Auto-email on creation (especially for client-created tickets)
+    _send_ticket_email(call_id, data)
+    
+    return call_id
 
 
 def get_service_call(call_id: int) -> Optional[Dict[str, Any]]:
@@ -115,6 +172,15 @@ def list_service_calls(
 #----------------------------------------
 
 
+
+
+def send_ticket_email(call_id: int) -> tuple[bool, str]:
+    """Manually send ticket email to admin (from button click)"""
+    call = get_service_call(call_id)
+    if not call:
+        return False, "Ticket not found"
+    
+    return _send_ticket_email(call_id, call)
 
 
 def update_service_call(call_id: int, data: Dict[str, Any]) -> bool:

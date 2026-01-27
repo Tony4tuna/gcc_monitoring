@@ -116,6 +116,7 @@ def render_calls_table(customer_id: Optional[int] = None, hierarchy: int = 5):
             close_btn = ui.button(icon="check_circle", text="Close").props("flat dense color=green").tooltip("Close Call with Reason")
             delete_btn = ui.button(icon="delete", text="Delete").props("flat dense color=negative").tooltip("Delete Service Call")
             print_btn = ui.button(icon="print", text="Print").props("flat dense").tooltip("Print Work Order")
+            email_btn = ui.button(icon="mail", text="Email").props("flat dense color=blue").tooltip("Send Email to Admin")
             refresh_btn = ui.button(icon="refresh", text="Refresh").props("flat dense").tooltip("Refresh List")
             
             # Wire initial click handlers
@@ -125,6 +126,7 @@ def render_calls_table(customer_id: Optional[int] = None, hierarchy: int = 5):
             close_btn.on_click(lambda: open_ticket_dialog("close"))
             delete_btn.on_click(lambda: open_ticket_dialog("delete"))
             print_btn.on_click(lambda: open_ticket_dialog("print"))
+            email_btn.on_click(lambda: open_ticket_dialog("email"))
             refresh_btn.on_click(lambda: refresh_calls())
 
         # Table definition - 7 columns with more spacing
@@ -282,6 +284,8 @@ def render_calls_table(customer_id: Optional[int] = None, hierarchy: int = 5):
                 confirm_delete(call_id)
             elif mode == "print":
                 show_print_call(full_data)
+            elif mode == "email":
+                send_ticket_email(call_id)
 
         # Wire up event handlers
         table.on("update:selected", lambda: update_button_states())
@@ -358,6 +362,17 @@ def show_close_dialog(call_id: int):
             ui.button("Close Call", icon="check_circle", on_click=on_confirm).props("color=green")
     
     dialog.open()
+
+
+def send_ticket_email(call_id: int):
+    """Send ticket email to admin"""
+    from core.tickets_repo import send_ticket_email as send_email_repo
+    
+    success, msg = send_email_repo(call_id)
+    if success:
+        ui.notify(f"✓ Email sent: {msg}", type="positive")
+    else:
+        ui.notify(f"Email failed: {msg}", type="warning")
 
 
 def confirm_delete(call_id: int):

@@ -629,6 +629,7 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
             close_btn = ui.button(icon="check_circle", on_click=lambda: open_ticket_dialog("close")).props("flat dense color=green")
             delete_btn = ui.button(icon="delete", on_click=lambda: open_ticket_dialog("delete")).props("flat dense color=negative")
             print_btn = ui.button(icon="print", on_click=lambda: open_ticket_dialog("print")).props("flat dense")
+            email_btn = ui.button(icon="mail", on_click=lambda: open_ticket_dialog("email")).props("flat dense color=blue")
             refresh_btn = ui.button(icon="refresh", on_click=lambda: refresh_tickets()).props("flat dense")
 
         columns = [
@@ -697,10 +698,26 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
             update_button_states()
 
         def open_ticket_dialog(mode: str):
-            from pages.tickets import show_ticket_detail, show_edit_dialog, show_close_dialog, confirm_delete, show_print_call, render_call_form
+            from pages.tickets import show_ticket_detail, show_edit_dialog, show_close_dialog, confirm_delete, show_print_call, send_ticket_email
             
+            # Keep dashboard dialog identical to the main Tickets page
+            user_ctx = current_user() or {}
+            hierarchy = int(user_ctx.get("hierarchy") or 5)
+
             if mode == "new":
-                render_call_form(customer_id, current_user() or {}, current_user().get("hierarchy", 5))
+                new_call = {
+                    "ID": None,
+                    "customer_id": customer_id if hierarchy == 4 else None,
+                    "location_id": None,
+                    "unit_id": None,
+                    "status": "Open",
+                    "priority": "Normal",
+                    "title": "Work Order",
+                    "description": "",
+                    "materials_services": "",
+                    "labor_description": "",
+                }
+                show_edit_dialog(new_call, mode="create", user=user_ctx, hierarchy=hierarchy)
                 return
 
             if not table.selected:
@@ -721,6 +738,8 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
                 confirm_delete(call_id)
             elif mode == "print":
                 show_print_call(full_data)
+            elif mode == "email":
+                send_ticket_email(call_id)
 
         table.on("update:selected", lambda: update_button_states())
         search_input.on("keydown.enter", lambda: refresh_tickets())
