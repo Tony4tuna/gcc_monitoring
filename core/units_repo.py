@@ -11,6 +11,35 @@ print(">>> LOADED units_repo.py FROM:", __file__)
 
 
 # ---------------------------------------------------------
+# TICKET UNIT HELPERS (junction table)
+# ---------------------------------------------------------
+
+def get_ticket_unit_ids(ticket_id: int) -> List[int]:
+    """Return list of unit_ids linked to a ticket via TicketUnits, fallback to ServiceCalls.unit_id."""
+    with get_conn() as conn:
+        rows = conn.execute("SELECT unit_id FROM TicketUnits WHERE ticket_id = ? ORDER BY sequence_order", (ticket_id,)).fetchall()
+        ids = [int(r[0]) for r in rows]
+        if ids:
+            return ids
+        # fallback to ServiceCalls.unit_id
+        row = conn.execute("SELECT unit_id FROM ServiceCalls WHERE ID = ?", (ticket_id,)).fetchone()
+        return [int(row[0])] if row and row[0] is not None else []
+
+
+def set_ticket_units(ticket_id: int, unit_ids: List[int]) -> None:
+    """Replace TicketUnits entries for a ticket (keeps order)."""
+    unit_ids = [int(u) for u in unit_ids if u is not None]
+    with get_conn() as conn:
+        conn.execute("DELETE FROM TicketUnits WHERE ticket_id = ?", (ticket_id,))
+        for idx, unit_id in enumerate(unit_ids):
+            conn.execute(
+                "INSERT INTO TicketUnits (ticket_id, unit_id, sequence_order) VALUES (?, ?, ?)",
+                (ticket_id, unit_id, idx)
+            )
+        conn.commit()
+
+
+# ---------------------------------------------------------
 # LIST UNITS (used by Equipment page)
 # ---------------------------------------------------------
 

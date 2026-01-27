@@ -14,7 +14,7 @@ from core.tickets_repo import (
 )
 from core.customers_repo import list_customers, get_customer
 from core.locations_repo import list_locations
-from core.units_repo import list_units
+from core.units_repo import list_units, get_ticket_unit_ids, set_ticket_units
 from ui.layout import layout
 from ui.table_page import table_page
 
@@ -1119,6 +1119,11 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
     existing_customer_id = _safe_int(call.get("customer_id"))
     existing_location_id = _safe_int(call.get("location_id"))
     existing_unit_id = _safe_int(call.get("unit_id"))
+    existing_unit_ids: list[int] = []
+    if not is_create and call_id:
+        existing_unit_ids = get_ticket_unit_ids(call_id)
+    if not existing_unit_ids and existing_unit_id:
+        existing_unit_ids = [existing_unit_id]
     
     is_readonly = (mode == "view")
     is_create = (mode == "create")
@@ -1189,9 +1194,17 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
             # Unit (cascades from location)
             initial_units = list_units(location_id=existing_location_id) if existing_location_id else []
             unit_options = {u["unit_id"]: u.get("unit_tag") or f"RTU-{u['unit_id']}" for u in initial_units}
-            if existing_unit_id and existing_unit_id not in unit_options:
-                unit_options[existing_unit_id] = call.get("unit") or call.get("unit_name") or "Unit"
-            unit_select = ui.select(unit_options, value=existing_unit_id, label="Equipment Unit").classes("w-full bg-gray-800").props(f"outlined dense {readonly_prop}")
+            for uid in existing_unit_ids:
+                if uid not in unit_options:
+                    unit_options[uid] = call.get("unit") or call.get("unit_name") or f"Unit {uid}"
+
+            unit_select = ui.select(
+                unit_options,
+                value=existing_unit_ids,
+                label="Equipment Units",
+                multiple=True,
+                with_input=True
+            ).classes("w-full bg-gray-800").props(f"use-chips outlined dense {readonly_prop}")
 
         # Status / Priority
         with ui.grid(columns=2).classes("gap-4 w-full"):
@@ -1215,7 +1228,12 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
             # Final selections
             final_customer_id = customer_select.value or existing_customer_id
             final_location_id = location_select.value or existing_location_id
-            final_unit_id = unit_select.value or existing_unit_id
+            selected_units = unit_select.value or []
+            if not isinstance(selected_units, list):
+                selected_units = [selected_units]
+            selected_units = [int(u) for u in selected_units if u is not None]
+
+            final_unit_id = selected_units[0] if selected_units else None
             
             if not final_customer_id:
                 ui.notify("Customer is required", type="negative")
@@ -1245,13 +1263,15 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
                 data["requested_by_login_id"] = user.get("login_id") or user.get("ID") if user else None
                 try:
                     new_id = create_service_call(data)
-                    ui.notify(f"✓ Service Call #{new_id} created successfully!", type="positive")
+                    set_ticket_units(new_id, selected_units)
+                    ui.notify(f" Service Call #{new_id} created successfully!", type="positive")
                     dialog.close()
                     ui.navigate.reload()
                 except Exception as e:
                     ui.notify(f"Error creating service call: {e}", type="negative")
             else:
                 if update_service_call(call_id, data):
+                    set_ticket_units(call_id, selected_units)
                     ui.notify("Service call updated", type="positive")
                     dialog.close()
                     ui.navigate.reload()
@@ -1273,10 +1293,12 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
             loc_id = location_select.value
             units = list_units(location_id=loc_id) if loc_id else []
             unit_select.options = {u["unit_id"]: u.get("unit_tag") or f"RTU-{u['unit_id']}" for u in units}
-            if units:
-                # keep previous unit if still under this location
-                if existing_unit_id and any(u["unit_id"] == existing_unit_id for u in units):
-                    unit_select.value = existing_unit_id
+            unit_ids_available = {u["unit_id"] for u in units}
+            current_units = unit_select.value or []
+            if not isinstance(current_units, list):
+                current_units = [current_units]
+            keep_units = [u for u in current_units if u in unit_ids_available]
+            unit_select.value = keep_units
             unit_select.update()
 
         # Only enable cascading handlers in edit mode

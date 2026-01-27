@@ -368,28 +368,46 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
         c.drawString(left, y, "No units assigned")
         y -= 20
 
-    # Add materials and labor sections
+    # Add materials and labor sections with boxes like the old form
     y -= 10
+    box_width = right - left
+    box_height = 60
+
+    # Materials box
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(left, y, "MATERIALS / SERVICES")
+    c.drawString(left, y, "MATERIALS & SERVICES (TECH TO FILL)")
     y -= 14
+    c.rect(left, y - box_height, box_width, box_height, stroke=1, fill=0)
     c.setFont("Helvetica", 10)
     materials_text = ticket.get('materials_services') or "—"
-    materials_lines = simpleSplit(materials_text, "Helvetica", 10, right - left)
+    materials_lines = simpleSplit(materials_text, "Helvetica", 10, box_width - 8)
+    y_line = y - 12
     for line in materials_lines:
-        c.drawString(left, y, line)
-        y -= 12
-    y -= 8
+        if y_line <= y - box_height:
+            break
+        c.drawString(left + 6, y_line, line)
+        y_line -= 12
+    y = y - box_height - 16
 
+    # Labor box
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(left, y, "LABOR DESCRIPTION")
+    c.drawString(left, y, "LABOR DESCRIPTION (TECH TO FILL)")
     y -= 14
+    c.rect(left, y - box_height, box_width, box_height, stroke=1, fill=0)
     c.setFont("Helvetica", 10)
     labor_text = ticket.get('labor_description') or "—"
-    labor_lines = simpleSplit(labor_text, "Helvetica", 10, right - left)
+    labor_lines = simpleSplit(labor_text, "Helvetica", 10, box_width - 8)
+    y_line = y - 12
     for line in labor_lines:
-        c.drawString(left, y, line)
-        y -= 12
+        if y_line <= y - box_height:
+            break
+        c.drawString(left + 6, y_line, line)
+        y_line -= 12
+    y = y - box_height - 20
+
+    # Signature line
+    c.setFont("Helvetica", 10)
+    c.drawString(left, y, "Customer Signature: ____________________________   Date: ____________")
     
     # Save PDF
     c.save()
