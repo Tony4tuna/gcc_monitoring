@@ -523,6 +523,11 @@ def show_print_call(call: Dict[str, Any]):
         # Lazy import to avoid circulars
         from pages.dashboard import generate_service_order_pdf, _generate_ticket_no
 
+        call_id = call.get("ID") or call.get("id")
+        if not call_id:
+            ui.notify("Missing ticket ID for PDF", type="negative")
+            return
+
         # Build data payload expected by generator
         data = {
             "customer": call.get('customer') or call.get('customer_name') or (f"Customer #{call.get('customer_id')}") if call.get('customer_id') else '—',
