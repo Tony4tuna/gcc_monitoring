@@ -128,7 +128,10 @@ def list_service_calls(
 
     query = """
     SELECT 
-        sc.*,
+        sc.ID, sc.customer_id, sc.location_id, sc.unit_id,
+        sc.title, sc.description, sc.priority, sc.status,
+        sc.requested_by_login_id, sc.materials_services, sc.labor_description,
+        sc.created, sc.closed,
         COALESCE(
             NULLIF(c.company, ''),
             NULLIF(TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')), ''),
