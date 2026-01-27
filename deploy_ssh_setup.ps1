@@ -62,7 +62,11 @@ Write-Host "🚀 Step 3: Deploying to droplet..." -ForegroundColor Yellow
 
 ssh -o StrictHostKeyChecking=no "$USER@$HOST" @"
     cd $APP_DIR && \
-    echo '📥 Pulling latest code from GitHub...' && \
+    echo '� Backing up database...' && \
+    cp data/app.db data/app.db.backup_\$(date +%Y%m%d_%H%M%S) && \
+    echo '   ✓ Backup created' && \
+    echo '' && \
+    echo '�📥 Pulling latest code from GitHub...' && \
     git pull && \
     echo '✓ Code updated' && \
     echo '' && \

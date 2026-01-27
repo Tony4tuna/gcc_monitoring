@@ -33,7 +33,12 @@ ssh -o StrictHostKeyChecking=no -i $SSH_KEY_PATH "$USER@$HOST" @"
     set -e
     cd $APP_DIR
     
-    echo '📥 Pulling latest code from GitHub...'
+    echo '� Backing up database...'
+    cp data/app.db data/app.db.backup_$(date +%Y%m%d_%H%M%S)
+    echo '   ✓ Backup created'
+    echo ''
+    
+    echo '�📥 Pulling latest code from GitHub...'
     git pull
     echo '   ✓ Code updated'
     echo ''
