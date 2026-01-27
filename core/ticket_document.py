@@ -325,29 +325,30 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     c.drawString(left, y, "UNITS INFORMATION")
     y -= 16
     
-    # Units table (bordered grid)
-    if units:
-        col_widths = [60, 60, 80, 60, 50, 70, 50, 80]
-        col_headers = ["Tag", "Type", "Make", "Model", "Tons", "Refrig", "V", "Serial"]
-        
-        # Header row
-        c.setFont("Helvetica-Bold", 9)
-        x = left
-        row_height = 20
+    # Units table (bordered grid) - always draw 4 rows to reserve space
+    col_widths = [60, 60, 80, 60, 50, 70, 50, 80]
+    col_headers = ["Tag", "Type", "Make", "Model", "Tons", "Refrig", "V", "Serial"]
+    row_height = 20
+    
+    # Header row
+    c.setFont("Helvetica-Bold", 9)
+    x = left
+    c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
+    
+    for i, header in enumerate(col_headers):
+        c.drawString(x + 4, y - 14, header)
+        x += col_widths[i]
+    
+    y -= row_height
+    
+    # Data rows (always 4 rows, empty if no units)
+    c.setFont("Helvetica", 9)
+    for idx in range(4):
+        unit = units[idx] if idx < len(units) else None
         c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
         
-        for i, header in enumerate(col_headers):
-            c.drawString(x + 4, y - 14, header)
-            x += col_widths[i]
-        
-        y -= row_height
-        
-        # Data rows
-        c.setFont("Helvetica", 9)
-        for unit in units[:4]:
-            c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
-            
-            x = left
+        x = left
+        if unit:
             values = [
                 unit.get('unit_tag') or f"RTU-{unit.get('unit_id', '?')}",
                 unit.get('equipment_type') or 'RTU',
@@ -358,16 +359,14 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
                 str(unit.get('voltage') or '—'),
                 unit.get('serial') or '—'
             ]
-            
-            for i, val in enumerate(values):
-                c.drawString(x + 4, y - 14, str(val)[:15])  # Truncate if too long
-                x += col_widths[i]
-            
-            y -= row_height
-    else:
-        c.setFont("Helvetica", 9)
-        c.drawString(left, y, "No units assigned")
-        y -= 20
+        else:
+            values = ['—'] * 8  # empty row
+        
+        for i, val in enumerate(values):
+            c.drawString(x + 4, y - 14, str(val)[:15])  # Truncate if too long
+            x += col_widths[i]
+        
+        y -= row_height
 
     # Add materials and labor sections with dividers, larger boxes (~800 chars), and note + signature lines
     y -= 10
