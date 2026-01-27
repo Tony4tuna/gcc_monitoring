@@ -1115,6 +1115,10 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
         except Exception:
             return None
 
+    # Define mode flags first (before using them)
+    is_readonly = (mode == "view")
+    is_create = (mode == "create")
+
     call_id = call.get("ID")
     existing_customer_id = _safe_int(call.get("customer_id"))
     existing_location_id = _safe_int(call.get("location_id"))
@@ -1124,9 +1128,6 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
         existing_unit_ids = get_ticket_unit_ids(call_id)
     if not existing_unit_ids and existing_unit_id:
         existing_unit_ids = [existing_unit_id]
-    
-    is_readonly = (mode == "view")
-    is_create = (mode == "create")
     
     # Sanitize status and priority values from database
     status_val = call.get("status") or "Open"
