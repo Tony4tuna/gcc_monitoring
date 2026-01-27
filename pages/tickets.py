@@ -1117,6 +1117,9 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
             title_text = f"{dialog_title} #{call_id}"
         ui.label(title_text).classes("text-xl font-bold mb-4")
 
+        # readonly_prop must be defined before any inputs use it
+        readonly_prop = "readonly" if (is_readonly or (is_create and hierarchy == 4)) else ""
+
         # Title (editable in edit mode, auto-generated on create)
         if is_create:
             # Auto-generated from materials on create
@@ -1150,7 +1153,6 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
             if existing_customer_id and existing_customer_id not in customer_options:
                 customer_options[existing_customer_id] = call.get("customer") or call.get("customer_name") or "Customer"
             # Readonly for view mode or client role in create mode
-            readonly_prop = "readonly" if (is_readonly or (is_create and hierarchy == 4)) else ""
             customer_select = ui.select(customer_options, value=existing_customer_id, label="Customer").classes("w-full bg-gray-800").props(f"outlined dense {readonly_prop}")
 
             # Location (cascades from customer)

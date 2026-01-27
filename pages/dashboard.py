@@ -731,7 +731,6 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
             if mode == "view":
                 show_ticket_detail(full_data)
             elif mode == "edit":
-                from core.auth import current_user
                 user = current_user() or {}
                 # Get hierarchy from stored user data
                 hierarchy_val = user.get("hierarchy", 5)
