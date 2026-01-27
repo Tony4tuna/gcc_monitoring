@@ -277,7 +277,8 @@ def render_calls_table(customer_id: Optional[int] = None, hierarchy: int = 5):
             if mode == "view":
                 show_ticket_detail(full_data)
             elif mode == "edit":
-                show_edit_dialog(full_data)
+                user = current_user() or {}
+                show_edit_dialog(full_data, mode="edit", user=user, hierarchy=hierarchy)
             elif mode == "close":
                 show_close_dialog(call_id)
             elif mode == "delete":

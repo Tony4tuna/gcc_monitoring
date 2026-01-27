@@ -731,7 +731,11 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
             if mode == "view":
                 show_ticket_detail(full_data)
             elif mode == "edit":
-                show_edit_dialog(full_data)
+                from core.auth import current_user
+                user = current_user() or {}
+                # Get hierarchy from stored user data
+                hierarchy_val = user.get("hierarchy", 5)
+                show_edit_dialog(full_data, mode="edit", user=user, hierarchy=hierarchy_val)
             elif mode == "close":
                 show_close_dialog(call_id)
             elif mode == "delete":
