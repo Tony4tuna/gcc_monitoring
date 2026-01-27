@@ -278,9 +278,9 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     c.drawRightString(right, y_right, f"Ticket #: {ticket_no}")
     y_right -= 12
     
-    created_date = ticket.get('created', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    date_str = created_date[:10] if len(created_date) >= 10 else created_date
-    time_str = created_date[11:19] if len(created_date) >= 19 else "00:00:00"
+    created_raw = ticket.get('created') or ""
+    date_str = created_raw[:10] if len(created_raw) >= 10 else created_raw or "—"
+    time_str = created_raw[11:19] if len(created_raw) >= 19 else "—"
     
     c.drawRightString(right, y_right, f"Date: {date_str}")
     y_right -= 12
