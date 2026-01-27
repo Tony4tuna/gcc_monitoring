@@ -360,7 +360,7 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
                 unit.get('serial') or '—'
             ]
         else:
-            values = ['—'] * 8  # empty row
+            values = [''] * 8  # empty row - leave blank
         
         for i, val in enumerate(values):
             c.drawString(x + 4, y - 14, str(val)[:15])  # Truncate if too long
