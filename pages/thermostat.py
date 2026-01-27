@@ -571,17 +571,18 @@ def page():
             with ui.element("div").classes("gcc-selector-grid"):
                 ui.label("Client:").classes("font-bold text-sm")
                 customer_sel = ui.select(customer_opts).classes("w-full")
-                if customers:
-                    customer_sel.value = int(customers[0]["ID"])
                 
                 ui.label("Location:").classes("font-bold text-sm")
                 location_sel = ui.select({}).classes("w-full")
+                location_sel.disable()
                 
                 def update_locations():
                     if not customer_sel.value:
                         location_sel.options = {}
                         location_sel.value = None
                         location_sel.update()
+                        location_sel.disable()
+                        refresh_table()
                         return
                     
                     locations = list_locations("", int(customer_sel.value))
@@ -589,10 +590,8 @@ def page():
                         int(loc["ID"]): f"{loc.get('address1','')} — {loc.get('city','')}, {loc.get('state','')}".strip()
                         for loc in locations
                     }
-                    if locations:
-                        location_sel.value = int(locations[0]["ID"])
-                    else:
-                        location_sel.value = None
+                    location_sel.value = None
+                    location_sel.enable()
                     location_sel.update()
                     refresh_table()
                 
@@ -601,12 +600,12 @@ def page():
             
             # CRUDSP buttons
             with ui.element("div").classes("gcc-crudsp-grid"):
-                ui.button(icon="add", on_click=lambda: ui.notify("Create - Coming soon", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #4ade80;")
-                ui.button(icon="save", on_click=lambda: ui.notify("Check a unit or use header checkbox for bulk", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #60a5fa;")
-                ui.button(icon="update", on_click=lambda: ui.notify("Check a unit to update", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #fbbf24;")
-                ui.button(icon="delete", on_click=lambda: ui.notify("Check a unit to delete", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #ef4444;")
-                ui.button(icon="search", on_click=lambda: ui.notify("Search - Coming soon", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #a78bfa;")
-                ui.button(icon="print", on_click=lambda: ui.notify("Print - Coming soon", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #f472b6;")
+                create_btn = ui.button(icon="add", on_click=lambda: ui.notify("Create - Coming soon", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #4ade80;")
+                save_btn = ui.button(icon="save", on_click=lambda: ui.notify("Check a unit or use header checkbox for bulk", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #60a5fa;")
+                update_btn = ui.button(icon="update", on_click=lambda: ui.notify("Check a unit to update", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #fbbf24;")
+                delete_btn = ui.button(icon="delete", on_click=lambda: ui.notify("Check a unit to delete", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #ef4444;")
+                search_btn = ui.button(icon="search", on_click=lambda: ui.notify("Search - Coming soon", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #a78bfa;")
+                print_btn = ui.button(icon="print", on_click=lambda: ui.notify("Print - Coming soon", type="info")).props("outline dense").classes("gcc-crudsp-btn").style("color: #f472b6;")
 
             # Header info
             with ui.card().classes("gcc-card").style("flex-shrink: 0;"):
@@ -634,6 +633,16 @@ def page():
                     pagination={"rowsPerPage": 15}
                 ).classes("w-full").style("flex: 1; min-height: 0;")
                 table.props("dense bordered virtual-scroll")
+
+                empty_label = ui.label("Pick a client and location to load units").classes("gcc-muted text-sm")
+
+                def update_controls():
+                    ready = bool(customer_sel.value and location_sel.value)
+                    for btn in (create_btn, save_btn, update_btn, delete_btn, search_btn, print_btn):
+                        if ready:
+                            btn.enable()
+                        else:
+                            btn.disable()
 
                 # Right-align all cell content with ellipsis on location column
                 table.add_slot("body-cell", """
@@ -670,7 +679,11 @@ def page():
                 def refresh_table():
                     if not customer_sel.value or not location_sel.value:
                         table.rows = []
+                        table.selected = []
                         table.update()
+                        empty_label.visible = True
+                        empty_label.update()
+                        update_controls()
                         return
                     
                     # Fetch units for selected customer and location (max 15)
@@ -688,9 +701,13 @@ def page():
                         })
                     table.rows = rows
                     table.update()
+                    empty_label.visible = len(rows) == 0
+                    empty_label.update()
+                    update_controls()
                 
                 # Initial load
                 update_locations()
+                update_controls()
 
         with ui.row().classes("text-xs gcc-muted mt-6 justify-center"):
             ui.label(f"GCC Monitoring v{get_version()}  Built {get_build_info().get('build_date','')}")

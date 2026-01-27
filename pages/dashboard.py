@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from nicegui import ui
-from typing import Optional, Any
+from typing import Optional, Any, List, Dict, Tuple
 
 from core.auth import require_login, current_user
 from core.db import get_conn
@@ -58,6 +58,76 @@ def _extract_row_from_event_args(args: Any) -> Optional[dict]:
         return args
 
     return None
+
+
+def _now():
+    from datetime import datetime
+    return datetime.now()
+
+
+def _trim(s: str, max_len: int = 80) -> str:
+    s = (s or "").strip()
+    return s if len(s) <= max_len else (s[: max_len - 1].rstrip() + "…")
+
+
+def _build_location_text(data: dict) -> str:
+    parts: List[str] = []
+    if data.get("location"):
+        parts.append(str(data.get("location")))
+    city = (data.get("location_city") or "").strip()
+    state = (data.get("location_state") or "").strip()
+    zip_code = (data.get("location_zip") or "").strip()
+    city_state = ", ".join([p for p in [city, state] if p])
+    if city_state:
+        if zip_code:
+            city_state = f"{city_state} {zip_code}"
+        parts.append(city_state)
+    return ", ".join([p for p in parts if p]).strip() or "—"
+
+
+def _compose_autodesc(data: dict, alerts: dict) -> str:
+    supply = data.get("supply_temp") or "—"
+    ret = data.get("return_temp") or "—"
+    delta_t = data.get("delta_t") or "—"
+    discharge = data.get("discharge_psi") or "—"
+    suction = data.get("suction_psi") or "—"
+    superheat = data.get("superheat") or "—"
+    subcool = data.get("subcooling") or "—"
+    amps = data.get("compressor_amps") or "—"
+    v1 = data.get("v_1") or "—"
+    v2 = data.get("v_2") or "—"
+    v3 = data.get("v_3") or "—"
+    primary_issue = data.get("fault_code") or "None"
+
+    lines: List[str] = [
+        f"Primary Issue: {primary_issue}",
+        "Snapshot:",
+        f"Supply: {supply} F   Return: {ret} F   ∆T: {delta_t} F",
+        f"Discharge: {discharge} PSI   Suction: {suction} PSI",
+        f"Superheat: {superheat} F   Subcool: {subcool} F",
+        f"Amps: {amps} A   V1/V2/V3: {v1}/{v2}/{v3}",
+        "",
+        "Top Alerts:",
+    ]
+
+    all_alerts = alerts.get("all") or []
+    if not all_alerts:
+        lines.append("—")
+    else:
+        for alert in all_alerts[:6]:
+            severity = str(alert.get("severity") or "warning").upper()
+            code = _trim(str(alert.get("code") or "—"), 24)
+            msg = _trim(str(alert.get("message") or "—"), 70)
+            lines.append(f"[{severity}] {code}: {msg}")
+
+    return "\n".join(lines)
+
+
+def _require_reportlab() -> None:
+    try:
+        import reportlab  # noqa: F401
+    except Exception as exc:  # pragma: no cover - runtime guard
+        raise RuntimeError(f"ReportLab not installed. Run: pip install reportlab (error: {exc})")
 
 
 # =========================================================
@@ -217,7 +287,6 @@ def get_open_tickets(customer_id: Optional[int] = None) -> list[dict]:
             LEFT JOIN Logins l ON sc.requested_by_login_id = l.ID
             {where_sql}
             ORDER BY sc.created DESC
-            LIMIT 50
             """,
             tuple(params),
         ).fetchall()
@@ -541,74 +610,125 @@ def render_admin_units_grid(stats: dict, tickets_by_unit: dict) -> None:
 # =========================================================
 
 def render_tickets_grid(customer_id: Optional[int]) -> None:
-    tickets = get_open_tickets(customer_id)
-
+    from core.tickets_repo import list_service_calls, search_service_calls
+    
     with ui.element("div").classes("gcc-dashboard-grid-item"):
-        ui.label("Open Service Tickets").classes("text-lg font-bold mb-2")
-        ui.label("Click any row to view ticket details").classes("text-xs gcc-muted mb-2")
-
-        if not tickets:
-            ui.label("No open tickets").classes("gcc-muted")
-            return
-
-        rows: list[dict] = []
-        for t in tickets:
-            created_by = "CLIENT" if t.get("hierarchy") == 4 else "TECH/ADMIN"
-            short_date = (t.get("created") or "")[:10] if t.get("created") else "—"
-            raw_title = (t.get("title") or "").strip()
-            issue_only = raw_title.split(" - ")[-1] if " - " in raw_title else raw_title
-
-            rows.append({
-                "ticket": t.get("ticket_no") or f"#{t.get('ID')}",
-                "created": short_date,
-                "customer": (t.get("customer") or "")[:20],
-                "location": (t.get("location") or "")[:18],
-                "title": issue_only[:40],
-                "by": created_by,
-                "ticket_id": t.get("ID"),
-            })
+        ui.label("Service Tickets").classes("text-lg font-bold mb-2")
+        
+        # Filters
+        with ui.row().classes("gap-3 items-center flex-wrap mb-2"):
+            search_input = ui.input("Search").classes("w-60")
+            status_filter = ui.select(["All", "Open", "In Progress", "Closed"], value="All", label="Status").classes("w-32")
+            priority_filter = ui.select(["All", "Low", "Normal", "High", "Emergency"], value="All", label="Priority").classes("w-32")
+        
+        # Action buttons
+        with ui.row().classes("gap-2 mb-2"):
+            new_btn = ui.button(icon="add_circle", on_click=lambda: open_ticket_dialog("new")).props("flat dense color=positive")
+            view_btn = ui.button(icon="visibility", on_click=lambda: open_ticket_dialog("view")).props("flat dense")
+            edit_btn = ui.button(icon="edit", on_click=lambda: open_ticket_dialog("edit")).props("flat dense")
+            close_btn = ui.button(icon="check_circle", on_click=lambda: open_ticket_dialog("close")).props("flat dense color=green")
+            delete_btn = ui.button(icon="delete", on_click=lambda: open_ticket_dialog("delete")).props("flat dense color=negative")
+            print_btn = ui.button(icon="print", on_click=lambda: open_ticket_dialog("print")).props("flat dense")
+            refresh_btn = ui.button(icon="refresh", on_click=lambda: refresh_tickets()).props("flat dense")
 
         columns = [
-            {"name": "ticket", "label": "Ticket", "field": "ticket", "align": "right"},
-            {"name": "created", "label": "Date", "field": "created", "align": "right"},
-            {"name": "customer", "label": "Customer", "field": "customer", "align": "right"},
-            {"name": "location", "label": "Location", "field": "location", "align": "right"},
-            {"name": "title", "label": "Issue", "field": "title", "align": "right"},
-            {"name": "by", "label": "Created By", "field": "by", "align": "right"},
+            {"name": "ID", "label": "ID", "field": "ID", "align": "left"},
+            {"name": "title", "label": "Title", "field": "title", "align": "left"},
+            {"name": "customer", "label": "Customer", "field": "customer", "align": "left"},
+            {"name": "location", "label": "Location", "field": "location", "align": "left"},
+            {"name": "status", "label": "Status", "field": "status", "align": "center"},
+            {"name": "priority", "label": "Priority", "field": "priority", "align": "center"},
+            {"name": "created", "label": "Created", "field": "created", "align": "left"},
         ]
 
-        table = ui.table(columns=columns, rows=rows, row_key="ticket_id") \
+        table = ui.table(columns=columns, rows=[], row_key="ID", selection="single") \
             .classes("gcc-dashboard-table") \
-            .props('dense flat virtual-scroll header-align="right"')
+            .props('dense flat virtual-scroll header-align="left"')
+        
+        def update_button_states():
+            has_selection = bool(table.selected)
+            if has_selection:
+                view_btn.enable()
+                edit_btn.enable()
+                selected = table.selected[0]
+                if selected.get("status") != "Closed":
+                    close_btn.enable()
+                    delete_btn.disable()
+                else:
+                    close_btn.disable()
+                    delete_btn.enable()
+                print_btn.enable()
+            else:
+                view_btn.disable()
+                edit_btn.disable()
+                close_btn.disable()
+                delete_btn.disable()
+                print_btn.disable()
 
-        table.add_slot("body-cell-ticket", r"""
-          <q-td :props="props">
-            <span v-if="props.value && props.value.includes('-')">
-              {{ props.value.split('-')[0] }}-<span style="color: #fbbf24;">{{ props.value.split('-')[1] }}</span>
-            </span>
-            <span v-else>{{ props.value }}</span>
-          </q-td>
-        """)
+        def refresh_tickets():
+            search_term = search_input.value
+            status = None if status_filter.value == "All" else status_filter.value
+            priority = None if priority_filter.value == "All" else priority_filter.value
 
-        table.add_slot("body-cell-by", r"""
-          <q-td :props="props">
-            <q-badge :color="props.value === 'CLIENT' ? 'amber' : 'blue'">
-              {{ props.value }}
-            </q-badge>
-          </q-td>
-        """)
+            if search_term:
+                calls = search_service_calls(search_term, customer_id)
+            else:
+                calls = list_service_calls(customer_id=customer_id, status=status, priority=priority)
 
-        def on_ticket_row_click(e) -> None:
-            row = _extract_row_from_event_args(e.args)
-            if not row:
+            rows = []
+            for call in calls:
+                customer_name = call.get("customer_name")
+                if not customer_name and call.get("customer_id"):
+                    customer_name = f"Customer #{call.get('customer_id')}"
+
+                rows.append({
+                    "ID": call.get("ID"),
+                    "title": (call.get("title") or "Untitled")[:60],
+                    "customer": (customer_name or "—")[:40],
+                    "location": (call.get("location_address") or "—")[:60],
+                    "status": call.get("status", "—"),
+                    "priority": call.get("priority", "—"),
+                    "created": (call.get("created") or "")[:16],
+                    "_full_data": call,
+                })
+
+            table.rows = rows
+            table.update()
+            update_button_states()
+
+        def open_ticket_dialog(mode: str):
+            from pages.tickets import show_ticket_detail, show_edit_dialog, show_close_dialog, confirm_delete, show_print_call, render_call_form
+            
+            if mode == "new":
+                render_call_form(customer_id, current_user() or {}, current_user().get("hierarchy", 5))
                 return
-            ticket_id = _safe_int(row.get("ticket_id"))
-            if ticket_id is None:
-                return
-            ui.navigate.to(f"/tickets?id={ticket_id}")
 
-        # Use rowClick (camelCase) here too
-        table.on("rowClick", on_ticket_row_click)
+            if not table.selected:
+                ui.notify("Select a service call first", type="warning")
+                return
+
+            selected = table.selected[0]
+            full_data = selected.get("_full_data", selected)
+            call_id = selected["ID"]
+
+            if mode == "view":
+                show_ticket_detail(full_data)
+            elif mode == "edit":
+                show_edit_dialog(full_data)
+            elif mode == "close":
+                show_close_dialog(call_id)
+            elif mode == "delete":
+                confirm_delete(call_id)
+            elif mode == "print":
+                show_print_call(full_data)
+
+        table.on("update:selected", lambda: update_button_states())
+        search_input.on("keydown.enter", lambda: refresh_tickets())
+        status_filter.on_value_change(lambda: refresh_tickets())
+        priority_filter.on_value_change(lambda: refresh_tickets())
+
+        update_button_states()
+        refresh_tickets()
 
 
 # =========================================================
@@ -649,6 +769,193 @@ def render_dashboard(customer_id: Optional[int]) -> None:
 
 
 # =========================================================
+# PDF GENERATION
+# =========================================================
+
+def _generate_ticket_no(call_id: int) -> str:
+    from datetime import datetime
+
+    date_part = datetime.now().strftime("%Y%m%d")
+    num_part = f"{call_id:04d}"
+    return f"{date_part}-{num_part}"
+
+
+def generate_service_order_pdf(ticket_no: str, data: dict, health: dict, alerts: dict, company: dict) -> Tuple[str, bytes]:
+    """Generate service order PDF matching the legacy canvas-based layout."""
+    _require_reportlab()
+
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    import os
+
+    os.makedirs("reports/service_orders", exist_ok=True)
+
+    unit_id = int(data.get("unit_id") or 0)
+    unit_name = f"RTU-{unit_id}" if unit_id else "UNIT"
+    filename = f"ServiceOrder_{ticket_no}_{unit_name}.pdf"
+    pdf_path = os.path.join("reports", "service_orders", filename)
+
+    c = canvas.Canvas(pdf_path, pagesize=letter)
+    width, height = letter
+    left = 40
+    right = width - 40
+    y = height - 40
+
+    def text(x: float, y_pos: float, s: str, size: int = 10, bold: bool = False) -> None:
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        c.drawString(x, y_pos, s)
+
+    # Header
+    comp_name = company.get("company") or company.get("name") or "GCC Technology"
+    text(left, y, comp_name, 14, True)
+    y -= 16
+    for line in [
+        company.get("address1") or "",
+        company.get("address2") or "",
+        " ".join([
+            p
+            for p in [
+                (company.get("city") or "").strip(),
+                (company.get("state") or "").strip(),
+                (company.get("zip") or "").strip(),
+            ]
+            if p
+        ]).strip(),
+    ]:
+        if line.strip():
+            text(left, y, line.strip(), 10)
+            y -= 12
+
+    contact_line = " | ".join(
+        [
+            p
+            for p in [
+                (company.get("phone") or "").strip(),
+                (company.get("email") or "").strip(),
+                (company.get("website") or "").strip(),
+            ]
+            if p
+        ]
+    ).strip()
+    if contact_line:
+        text(left, y, contact_line, 9)
+        y -= 14
+
+    c.line(left, y, right, y)
+    y -= 18
+
+    # Title on the left; ticket/date/time column on the right, matching requested spacing
+    text(left, y, "HVAC Service Order Invoice", 12, True)
+    now = _now()
+    info_x = right - 210
+    text(info_x, y, f"Ticket #: {ticket_no}", 9)
+    y -= 12
+    text(info_x, y, f"Date    : {now.strftime('%m/%d/%Y')}", 9)
+    y -= 12
+    text(info_x, y, f"Time    : {now.strftime('%H:%M:%S')}", 9)
+    y -= 8
+    c.line(left, y, right, y)
+    y -= 18
+
+    mid = (left + right) / 2
+
+    lx = left
+    ly = y
+    text(lx, ly, "CONTACT INFORMATION", 10, True)
+    ly -= 12
+    text(lx, ly, f"Customer: {data.get('customer', '—')}", 9)
+    ly -= 11
+    text(lx, ly, f"Location: {_build_location_text(data)}", 9)
+    ly -= 11
+    text(lx, ly, f"Phone: {data.get('customer_phone') or '—'}", 9)
+    ly -= 11
+    text(lx, ly, f"Email: {data.get('customer_email') or '—'}", 9)
+    ly -= 14
+
+    text(lx, ly, "UNIT INFORMATION", 10, True)
+    ly -= 12
+    text(lx, ly, f"Unit: RTU-{unit_id}", 9)
+    ly -= 11
+    text(lx, ly, f"Make/Model: {data.get('make', '—')} {data.get('model', '—')}", 9)
+    ly -= 11
+    text(lx, ly, f"Serial #: {data.get('serial', '—')}", 9)
+    ly -= 11
+    score = int(health.get("score", 0) or 0)
+    text(lx, ly, f"Mode: {data.get('mode', '—')}   Health: {score}% ({health.get('status', 'Unknown')})", 9)
+    ly -= 11
+    text(lx, ly, f"Fault Code: {data.get('fault_code') or 'None'}", 9)
+    ly -= 14
+
+    rx = mid + 18
+    ry = y
+    text(rx, ry, "DESCRIPTION (AUTO)", 10, True)
+    ry -= 12
+    c.setFont("Helvetica", 8.7)
+    for line in _compose_autodesc(data, alerts).splitlines()[:20]:
+        c.drawString(rx, ry, line)
+        ry -= 10
+
+    c.line(mid, y + 10, mid, min(ly, ry) - 20)
+
+    y2 = min(ly, ry) - 25
+    c.line(left, y2, right, y2)
+    y2 -= 14
+
+    def _wrap_text(content: str, max_width: float, font: str = "Helvetica", size: int = 9) -> List[str]:
+        """Simple word-wrap that respects the current font metrics."""
+        c.setFont(font, size)
+        words = (content or "").split()
+        lines: List[str] = []
+        line = ""
+        for word in words:
+            candidate = f"{line} {word}".strip()
+            if c.stringWidth(candidate, font, size) <= max_width:
+                line = candidate
+            else:
+                lines.append(line or word)
+                line = word
+        if line:
+            lines.append(line)
+        return lines or [""]
+
+    def _draw_boxed_section(title: str, content: str, y_start: float) -> float:
+        box_height = 128
+        text(left, y_start, title, 10, True)
+        y_start -= 12
+        c.rect(left, y_start - box_height, right - left, box_height, stroke=1, fill=0)
+
+        # Render text inside the box with padding and wrapping
+        usable_width = (right - left) - 12
+        line_y = y_start - 14
+        line_height = 11
+        max_lines = int((box_height - 12) / line_height)
+        wrapped = _wrap_text(content or "—", usable_width)
+        for line in wrapped[:max_lines]:
+            c.drawString(left + 6, line_y, line)
+            line_y -= line_height
+
+        return y_start - box_height - 12
+
+    y2 -= 8  # blank line before materials box
+    y2 = _draw_boxed_section("MATERIALS & SERVICES (TECH TO FILL)", data.get("materials_services") or "", y2)
+    y2 -= 8  # blank line before labor box
+    y2 = _draw_boxed_section("LABOR DESCRIPTION (TECH TO FILL)", data.get("labor_description") or "", y2)
+
+    y2 -= 48  # space between last box and signature (3 extra lines)
+    text(left, y2, "Customer Signature: ____________________________   Date: ____________", 9)
+
+    c.showPage()
+    c.save()
+
+    with open(pdf_path, "rb") as pdf_file:
+        pdf_bytes = pdf_file.read()
+
+    if not pdf_bytes or len(pdf_bytes) < 500:
+        raise RuntimeError(f"PDF generation failed (too small): {pdf_path} ({len(pdf_bytes)} bytes)")
+
+    return pdf_path, pdf_bytes
+
+
 # PAGE
 # =========================================================
 

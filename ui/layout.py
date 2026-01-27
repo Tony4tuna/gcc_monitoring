@@ -70,8 +70,7 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
       /* Content wrapper - fills remaining space */
       .gcc-content-wrapper {
         flex: 1;
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden;
         padding: 1.5rem;
         min-height: 0; /* Critical for flex scrolling */
       }
@@ -243,8 +242,9 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
         grid-template-columns: 1fr 1fr;
         gap: 1rem;
         width: 100%;
-        height: calc(100vh - 380px);
+        max-height: 50vh;
         margin-top: 1rem;
+        overflow: hidden;
       }
       
       .gcc-dashboard-grid-item {
@@ -263,11 +263,13 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
         flex: 1;
         overflow: auto !important;
         width: 100%;
+        max-width: 100%;
         min-height: 0;
       }
       
       .gcc-dashboard-table .q-table__container {
         max-height: 100% !important;
+        max-width: 100% !important;
         overflow: auto !important;
       }
       
@@ -275,6 +277,11 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
         overflow-x: auto !important;
         overflow-y: auto !important;
         max-height: calc(100vh - 420px) !important;
+        max-width: 100% !important;
+      }
+      
+      .gcc-dashboard-table table {
+        max-width: 100% !important;
       }
       
       @media (max-width: 1200px) {

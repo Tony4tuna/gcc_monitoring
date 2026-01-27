@@ -37,14 +37,12 @@ def page():
         with ui.row().classes("gap-3 w-full items-center flex-wrap mb-4"):
             ui.label("Client:").classes("font-semibold")
             customer_id = ui.select(options=options).classes("w-[520px]")
-            if customers:
-                customer_id.value = int(customers[0]["ID"])
             search = ui.input("Search location (address/city/state/zip/contact)").classes("w-96")
             ui.button("Refresh", on_click=lambda: refresh()).props("outline dense")
             ui.space()
-            ui.button("Add Location", on_click=lambda: open_location_dialog("add")).props(f"dense color=primary {'disable' if not can_edit else ''}")
-            ui.button("Edit", on_click=lambda: open_location_dialog("edit")).props(f"dense {'disable' if not can_edit else ''}")
-            ui.button("Delete", on_click=lambda: open_location_dialog("delete")).props(f"dense color=negative outline {'disable' if not can_edit else ''}")
+            add_btn = ui.button("Add Location", on_click=lambda: open_location_dialog("add")).props("dense color=primary")
+            edit_btn = ui.button("Edit", on_click=lambda: open_location_dialog("edit")).props("dense")
+            delete_btn = ui.button("Delete", on_click=lambda: open_location_dialog("delete")).props("dense color=negative outline")
 
         # Table with fixed height
         with ui.card().classes("gcc-card").style("height: calc(100vh - 380px); display: flex; flex-direction: column;"):
@@ -67,10 +65,32 @@ def page():
             ).classes("w-full").style("flex: 1; min-height: 0;")
             table.props("dense bordered virtual-scroll")
 
+            empty_label = ui.label("Pick a client to load locations").classes("gcc-muted text-sm")
+
+        def update_button_states():
+            has_client = bool(customer_id.value)
+            if not can_edit:
+                add_btn.disable()
+                edit_btn.disable()
+                delete_btn.disable()
+            else:
+                if has_client:
+                    add_btn.enable()
+                    edit_btn.enable()
+                    delete_btn.enable()
+                else:
+                    add_btn.disable()
+                    edit_btn.disable()
+                    delete_btn.disable()
+
         def refresh():
             if not customer_id.value:
                 table.rows = []
+                table.selected = []
                 table.update()
+                empty_label.visible = True
+                empty_label.update()
+                update_button_states()
                 return
 
             cid = int(customer_id.value)
@@ -80,6 +100,9 @@ def page():
                 r["com"] = "✔" if int(r.get("commercial") or 0) == 1 else ""
             table.rows = rows
             table.update()
+            empty_label.visible = len(rows) == 0
+            empty_label.update()
+            update_button_states()
 
         def open_location_dialog(mode: str):
             if not customer_id.value:
@@ -164,4 +187,5 @@ def page():
             dialog.open()
 
         customer_id.on("update:model-value", lambda e: refresh())
-        refresh()
+        # Start with no selection; wait for explicit client choice
+        update_button_states()

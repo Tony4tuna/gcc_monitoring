@@ -16,11 +16,11 @@ from core.customers_repo import list_customers, get_customer
 from core.locations_repo import list_locations
 from core.units_repo import list_units
 from ui.layout import layout
-
+from ui.table_page import table_page
 
 @ui.page("/tickets")
 def tickets_page():
-    """Service Calls page"""
+    """Service Calls page - Dashboard-styled with expanded layout"""
     if not require_login():
         return
 
@@ -28,28 +28,27 @@ def tickets_page():
     hierarchy = int(user.get("hierarchy") or 5)
     customer_id = user.get("customer_id")
     
-    with layout("Service Calls", show_logout=True, hierarchy=hierarchy):
-        # Stats cards
-        render_stats(customer_id if hierarchy == 4 else None)
-        
-        # Main content
-        with ui.tabs().classes("w-full") as tabs:
-            ui.tab("All Calls")
-            ui.tab("Create New")
-        
-        with ui.tab_panels(tabs, value="All Calls").classes("w-full"):
-            with ui.tab_panel("All Calls"):
-                render_calls_list(customer_id if hierarchy == 4 else None, hierarchy)
+    with layout("Service Calls", show_logout=True, hierarchy=hierarchy, show_back=True, back_to="/"):
+        with ui.column().classes("w-full h-full flex-1 gap-4").style("display: flex; flex-direction: column; overflow: hidden;"):
+            # Stats row
+            render_stats(customer_id if hierarchy == 4 else None)
             
-            with ui.tab_panel("Create New"):
-                render_call_form(customer_id if hierarchy == 4 else None, user, hierarchy)
-
+            # Main content - dashboard-styled card container with overflow control
+            with ui.element("div").classes("flex-1 min-h-0 w-full").style("display: flex; flex-direction: column; overflow: hidden;"):
+                render_calls_table(customer_id if hierarchy == 4 else None, hierarchy)
+            
+            # Divider card
+            ui.separator().classes("my-2")
+            
+            # Footer card to prevent grid overflow
+            with ui.card().classes("gcc-card p-3 flex-shrink-0"):
+                ui.label("Service Calls Management").classes("text-xs gcc-muted")
 
 def render_stats(customer_id: Optional[int] = None):
     """Display service call statistics"""
     stats = get_service_call_stats(customer_id)
     
-    with ui.row().classes("w-full gap-4 mb-4"):
+    with ui.row().classes("w-full gap-4 mb-2 flex-shrink-0"):
         # Total
         with ui.card().classes("gcc-card p-4 flex-1"):
             ui.label("Total Calls").classes("text-sm gcc-muted")
@@ -76,202 +75,233 @@ def render_stats(customer_id: Optional[int] = None):
             ui.label(str(stats.get("emergency", 0))).classes("text-3xl font-bold text-red-400")
 
 
-def render_calls_list(customer_id: Optional[int] = None, hierarchy: int = 5):
-    """Display service calls list with search and filters"""
+def render_calls_table(customer_id: Optional[int] = None, hierarchy: int = 5):
+    """Display service calls in spacious card layout - dashboard-styled"""
+    from core.customers_repo import list_customers as _list_customers
+    from core.locations_repo import list_locations as _list_locations
     
-    with ui.card().classes("gcc-card p-4 mb-4"):
-        with ui.row().classes("w-full gap-4 items-center"):
-            search_input = ui.input("Search", placeholder="ID, Title, Description").classes("flex-1")
-            status_filter = ui.select(
-                ["All", "Open", "In Progress", "Closed"],
-                value="All",
-                label="Status"
-            ).classes("w-40")
-            priority_filter = ui.select(
-                ["All", "Low", "Normal", "High", "Emergency"],
-                value="All",
-                label="Priority"
-            ).classes("w-40")
-            ui.button("Search", icon="search", on_click=lambda: refresh_calls())
-            ui.button("Print All", icon="print", on_click=lambda: show_print_all(search_input.value, status_filter.value, priority_filter.value, customer_id))
-    
-    # Calls container with fixed height and scroll
-    with ui.card().classes("gcc-card").style("height: calc(100vh - 480px); overflow-y: auto;"):
-        calls_container = ui.column().classes("w-full gap-3")
-    
-    def refresh_calls():
-        calls_container.clear()
-        with calls_container:
-            search_term = search_input.value
+    # Main dashboard-styled card container
+    with ui.element("div").classes("gcc-dashboard-grid-item flex-shrink-0").style("height: 90%; max-height: 92%; display: flex; flex-direction: column; overflow: hidden;"):
+        
+        # Title in top left corner
+        ui.label("Service Tickets").classes("text-lg font-bold mb-3")
+        
+        # Header with search
+        with ui.row().classes("w-full items-center justify-between mb-4 flex-wrap gap-3"):
+            search_input = ui.input("Search...").classes("w-64")
+        
+        # Filters row - inline and spacious
+        with ui.row().classes("gap-4 items-center flex-wrap mb-4 pb-3").style("border-bottom: 1px solid var(--border)"):
+            status_filter = ui.select(["All", "Open", "In Progress", "Closed"], value="Open", label="Status").classes("w-40")
+            priority_filter = ui.select(["All", "Low", "Normal", "High", "Emergency"], value="All", label="Priority").classes("w-40")
+
+            # Admin filters - customer and location selectors
+            customer_sel = None
+            location_sel = None
+            if hierarchy <= 3:  # Admin/tech users get customer/location filters
+                customers = _list_customers("")
+                customer_opts = {int(c["ID"]): f"{c.get('company','')} — {c.get('first_name','')} {c.get('last_name','')}".strip() for c in customers}
+                customer_sel = ui.select(customer_opts, label="Client").classes("w-72")
+
+                location_sel = ui.select({}, label="Location").classes("w-56")
+                location_sel.disable()
+            
+            ui.space()  # Push action buttons to the right
+        
+        # Action buttons row - professional toolbar
+        with ui.row().classes("gap-2 mb-4 pb-3 flex-wrap").style("border-bottom: 1px solid var(--border)"):
+            new_btn = ui.button(icon="add_circle", text="New Call").props("flat dense color=positive").tooltip("Create New Service Call")
+            view_btn = ui.button(icon="visibility", text="View").props("flat dense").tooltip("View Details")
+            edit_btn = ui.button(icon="edit", text="Edit").props("flat dense").tooltip("Edit Service Call")
+            close_btn = ui.button(icon="check_circle", text="Close").props("flat dense color=green").tooltip("Close Call with Reason")
+            delete_btn = ui.button(icon="delete", text="Delete").props("flat dense color=negative").tooltip("Delete Service Call")
+            print_btn = ui.button(icon="print", text="Print").props("flat dense").tooltip("Print Work Order")
+            refresh_btn = ui.button(icon="refresh", text="Refresh").props("flat dense").tooltip("Refresh List")
+            
+            # Wire initial click handlers
+            new_btn.on_click(lambda: open_ticket_dialog("new"))
+            view_btn.on_click(lambda: open_ticket_dialog("view"))
+            edit_btn.on_click(lambda: open_ticket_dialog("edit"))
+            close_btn.on_click(lambda: open_ticket_dialog("close"))
+            delete_btn.on_click(lambda: open_ticket_dialog("delete"))
+            print_btn.on_click(lambda: open_ticket_dialog("print"))
+            refresh_btn.on_click(lambda: refresh_calls())
+
+        # Table definition - 7 columns with more spacing
+        columns = [
+            {"name": "ID", "label": "ID", "field": "ID", "align": "left", "sortable": True},
+            {"name": "title", "label": "Title", "field": "title", "align": "left", "sortable": True},
+            {"name": "customer", "label": "Customer", "field": "customer", "align": "left"},
+            {"name": "location", "label": "Location", "field": "location", "align": "left"},
+            {"name": "status", "label": "Status", "field": "status", "align": "center"},
+            {"name": "priority", "label": "Priority", "field": "priority", "align": "center"},
+            {"name": "created", "label": "Created", "field": "created", "align": "left"},
+        ]
+
+        # Spacious table with more padding - constrained height
+        table = ui.table(columns=columns, rows=[], row_key="ID", selection="single") \
+            .classes("gcc-dashboard-table w-full") \
+            .props('dense flat virtual-scroll')
+        
+        empty_label = ui.label("No service calls found. Click New Call to create one.").classes("gcc-muted text-center py-8")
+        empty_label.visible = False
+
+        def update_button_states():
+            """Smart enable/disable based on selection and status"""
+            has_selection = bool(table.selected)
+            
+            # Disable New when a row is selected (same logic as other grids)
+            if has_selection:
+                new_btn.disable()
+            else:
+                new_btn.enable()
+
+            if has_selection:
+                view_btn.enable()
+                edit_btn.enable() if hierarchy <= 3 else edit_btn.disable()
+                
+                selected = table.selected[0]
+                if selected.get("status") != "Closed":
+                    close_btn.enable() if hierarchy <= 3 else close_btn.disable()
+                    delete_btn.disable()
+                else:
+                    close_btn.disable()
+                    delete_btn.enable() if hierarchy <= 3 else delete_btn.disable()
+                print_btn.enable()
+            else:
+                view_btn.disable()
+                edit_btn.disable()
+                close_btn.disable()
+                delete_btn.disable()
+                print_btn.disable()
+
+        def refresh_calls():
+            """Load and filter service calls"""
+            search_term = (search_input.value or "").strip()
             status = None if status_filter.value == "All" else status_filter.value
             priority = None if priority_filter.value == "All" else priority_filter.value
+
+            # Determine filters based on selectors / role
+            effective_customer_id = customer_id
+            if customer_sel and customer_sel.value:
+                effective_customer_id = int(customer_sel.value)
             
+            effective_location_id = None
+            if location_sel and location_sel.value:
+                effective_location_id = int(location_sel.value)
+
+            # Load from database
             if search_term:
-                calls = search_service_calls(search_term, customer_id)
+                calls = search_service_calls(search_term, effective_customer_id)
             else:
-                calls = list_service_calls(customer_id=customer_id, status=status, priority=priority, limit=50)
-            
-            if not calls:
-                ui.label("No service calls found").classes("text-gray-400 italic")
+                calls = list_service_calls(
+                    customer_id=effective_customer_id,
+                    location_id=effective_location_id,
+                    status=status,
+                    priority=priority,
+                    limit=100,
+                )
+
+            rows = []
+            for call in calls:
+                customer_name = call.get("customer_name") or call.get("customer") or "—"
+
+                rows.append({
+                    "ID": call.get("ID"),
+                    "title": (call.get("title") or "Untitled")[:60],
+                    "customer": customer_name[:40],
+                    "location": (call.get("location_address") or call.get("location") or "—")[:60],
+                    "status": call.get("status", "—"),
+                    "priority": call.get("priority", "—"),
+                    "created": (call.get("created") or "")[:16],
+                    "_full_data": call,
+                })
+
+            table.rows = rows
+            table.update()
+            empty_label.visible = len(rows) == 0
+            empty_label.update()
+            update_button_states()
+
+        def update_locations():
+            """Cascade customer selection to location filter"""
+            if not customer_sel or not location_sel:
+                refresh_calls()
                 return
             
-            for call in calls:
-                render_call_card(call, hierarchy)
-    
-    refresh_calls()
-
-
-def render_call_card(call: Dict[str, Any], hierarchy: int):
-    """Display single service call card"""
-    call_id = call.get("ID")
-    status = call.get("status", "Open")
-    priority = call.get("priority", "Normal")
-    
-    # Status colors
-    status_colors = {
-        "Open": "border-blue-500",
-        "In Progress": "border-yellow-500",
-        "Closed": "border-green-500"
-    }
-    
-    # Priority badges
-    priority_colors = {
-        "Low": "bg-gray-700",
-        "Normal": "bg-blue-700",
-        "High": "bg-orange-700",
-        "Emergency": "bg-red-700"
-    }
-    
-    border_class = status_colors.get(status, "border-gray-500")
-    priority_class = priority_colors.get(priority, "bg-gray-700")
-    
-    with ui.card().classes(f"gcc-card p-4 border-l-4 {border_class}"):
-        with ui.row().classes("w-full items-start justify-between mb-2"):
-            # Left: Call ID and title
-            with ui.column().classes("gap-1 flex-1"):
-                with ui.row().classes("items-center gap-2"):
-                    ui.label(f"#{call_id}").classes("font-mono text-sm gcc-muted")
-                    ui.badge(priority.upper()).classes(f"{priority_class} text-xs")
-                    ui.badge(status.upper()).classes("bg-gray-800 text-xs")
-                
-                ui.label(call.get("title", "Untitled")).classes("text-lg font-bold")
+            if not customer_sel.value:
+                location_sel.options = {}
+                location_sel.value = None
+                location_sel.update()
+                location_sel.disable()
+                refresh_calls()
+                return
             
-            # Right: Actions
-            if hierarchy <= 3:  # Admin/Tech can edit
-                with ui.row().classes("gap-2"):
-                    ui.button(icon="visibility", on_click=lambda c=call: show_ticket_detail(c)).props("flat dense")
-                    ui.button(icon="print", on_click=lambda c=call: show_print_call(c)).props("flat dense color=blue").tooltip("Print")
-                    ui.button(icon="edit", on_click=lambda c=call: show_edit_dialog(c)).props("flat dense").tooltip("Edit")
-                    if status != "Closed":
-                        ui.button(icon="check_circle", on_click=lambda cid=call_id: show_close_dialog(cid)).props("flat dense color=green").tooltip("Close with reason")
-                    else:
-                        ui.button(icon="delete", on_click=lambda cid=call_id: confirm_delete(cid)).props("flat dense color=red").tooltip("Delete")
-        
-        # Details
-        with ui.grid(columns=4).classes("gap-2 text-sm gcc-muted"):
-            with ui.column():
-                ui.label("Customer")
-                ui.label(call.get("customer_name", "N/A")).classes("font-semibold")
-            
-            with ui.column():
-                ui.label("Location")
-                ui.label(call.get("location_address", "N/A"))
-            
-            with ui.column():
-                ui.label("Equipment")
-                eq_type = call.get('equipment_type', 'Unit')
-                unit_txt = f"{eq_type}-{call.get('unit_id')}" if call.get('unit_id') else (call.get("unit_name", "N/A"))
-                ui.label(unit_txt or "N/A")
+            locs = _list_locations("", int(customer_sel.value))
+            location_sel.options = {int(l["ID"]): f"{l.get('address1','')} — {l.get('city','')}, {l.get('state','')}".strip() for l in locs}
+            location_sel.value = None
+            location_sel.enable()
+            location_sel.update()
+            refresh_calls()
 
-            with ui.column():
-                ui.label("Specs")
-                specs = []
-                if call.get('tonnage'):
-                    specs.append(f"{call.get('tonnage')}T")
-                if call.get('refrigerant_type'):
-                    specs.append(call.get('refrigerant_type'))
-                ui.label(" | ".join(specs) or "N/A")
-        
-        if call.get("description"):
-            ui.separator().classes("my-2")
-            ui.label(call.get("description", "")).classes("text-sm")
+        def open_ticket_dialog(mode: str):
+            """Open dialog based on mode: new/view/edit/close/delete/print"""
+            if mode == "new":
+                # Create empty call structure for new service call
+                user = current_user() or {}
+                new_call = {
+                    "ID": None,
+                    "customer_id": customer_id if hierarchy == 4 else None,
+                    "location_id": None,
+                    "unit_id": None,
+                    "status": "Open",
+                    "priority": "Normal",
+                    "title": "Work Order",
+                    "description": "",
+                    "materials_services": "",
+                    "labor_description": ""
+                }
+                show_edit_dialog(new_call, mode="create", user=user, hierarchy=hierarchy)
+                return
 
-        if call.get("materials_services") or call.get("labor_description"):
-            ui.separator().classes("my-2")
-            if call.get("materials_services"):
-                ui.label("Materials & Services").classes("text-xs font-semibold")
-                ui.label(call.get("materials_services", "")).classes("text-xs")
-            if call.get("labor_description"):
-                ui.label("Labor Description").classes("text-xs font-semibold mt-1")
-                ui.label(call.get("labor_description", "")).classes("text-xs")
-        
-        # Footer: dates
-        with ui.row().classes("text-xs gcc-muted mt-2 gap-4"):
-            ui.label(f"Created: {call.get('created', '')[:16]}")
-            if call.get("closed"):
-                ui.label(f"Closed: {call.get('closed')[:16]}")
+            if not table.selected:
+                ui.notify("Select a service call first", type="warning")
+                return
+
+            selected = table.selected[0]
+            full_data = selected.get("_full_data", selected)
+            call_id = selected["ID"]
+
+            if mode == "view":
+                show_ticket_detail(full_data)
+            elif mode == "edit":
+                show_edit_dialog(full_data)
+            elif mode == "close":
+                show_close_dialog(call_id)
+            elif mode == "delete":
+                confirm_delete(call_id)
+            elif mode == "print":
+                show_print_call(full_data)
+
+        # Wire up event handlers
+        table.on("update:selected", lambda: update_button_states())
+        search_input.on("keydown.enter", lambda: refresh_calls())
+        status_filter.on_value_change(lambda: refresh_calls())
+        priority_filter.on_value_change(lambda: refresh_calls())
+
+        if customer_sel:
+            customer_sel.on_value_change(lambda: update_locations())
+        if location_sel:
+            location_sel.on_value_change(lambda: refresh_calls())
+
+        # Initial load
+        update_button_states()
+        refresh_calls()
 
 
 def show_ticket_detail(ticket: Dict[str, Any]) -> None:
-    """Read-only detail dialog for service tickets (matches dashboard view)."""
-    with ui.dialog() as dlg, ui.card().classes("gcc-card p-4 w-full max-w-4xl"):
-        ticket_no = ticket.get('ticket_no') or str(ticket.get('ID', '—'))
-        if '-' in str(ticket_no):
-            date_part, num_part = str(ticket_no).split('-', 1)
-            with ui.row().classes("items-center gap-1"):
-                ui.label("Service Ticket #").classes("text-lg font-bold")
-                ui.label(date_part + "-").classes("text-lg font-bold")
-                ui.label(num_part).classes("text-lg font-bold text-yellow-400")
-        else:
-            ui.label(f"Service Ticket #{ticket_no}").classes("text-lg font-bold")
-        ui.label(
-            f"Status: {ticket.get('status','—')} | Priority: {ticket.get('priority','—')} | Created: {(ticket.get('created') or '')[:19]}"
-        ).classes("text-sm gcc-muted")
-
-        ui.separator().classes("my-2")
-
-        ui.label(f"Customer: {ticket.get('customer_name') or ticket.get('customer','—')}").classes("text-sm")
-        ui.label(f"Location: {ticket.get('location_address') or ticket.get('location','—')}").classes("text-sm")
-        eq_type = ticket.get('equipment_type', 'RTU')
-        unit_txt = f"{eq_type}-{ticket.get('unit_id')}" if ticket.get('unit_id') else "—"
-        ui.label(f"Unit: {unit_txt}").classes("text-sm")
-
-        specs = []
-        if ticket.get('make'):
-            specs.append(f"Make: {ticket.get('make')}")
-        if ticket.get('model'):
-            specs.append(f"Model: {ticket.get('model')}")
-        if ticket.get('refrigerant_type'):
-            specs.append(f"Refrig: {ticket.get('refrigerant_type')}")
-        if ticket.get('tonnage'):
-            specs.append(f"Capacity: {ticket.get('tonnage')} Ton")
-        if specs:
-            ui.label(" | ".join(specs)).classes("text-sm gcc-muted")
-
-        ui.separator().classes("my-2")
-
-        ui.label("Title").classes("text-sm font-bold")
-        ui.label(ticket.get("title") or "—").classes("text-sm")
-
-        ui.separator().classes("my-2")
-
-        ui.label("General Description").classes("text-sm font-bold")
-        ui.textarea(value=ticket.get("description") or "").props("readonly autogrow").classes("w-full")
-
-        ui.separator().classes("my-2")
-
-        ui.label("Materials & Services").classes("text-sm font-bold")
-        ui.textarea(value=ticket.get("materials_services") or "").props("readonly autogrow").classes("w-full")
-
-        ui.separator().classes("my-2")
-
-        ui.label("Labor Description").classes("text-sm font-bold")
-        ui.textarea(value=ticket.get("labor_description") or "").props("readonly autogrow").classes("w-full")
-
-        with ui.row().classes("justify-end mt-3 gap-2"):
-            ui.button("Close", on_click=dlg.close).props("dense")
-
-    dlg.open()
+    """Read-only detail dialog for service tickets - uses unified edit dialog in view mode."""
+    show_edit_dialog(ticket, mode="view")
 
 
 def show_close_dialog(call_id: int):
@@ -292,7 +322,7 @@ def show_close_dialog(call_id: int):
         ui.label("Select a reason for closing this ticket:").classes("text-sm gcc-muted mb-3")
         
         reason_select = ui.select(close_reasons, label="Closing Reason *").classes("w-full")
-        notes_input = ui.textarea("Additional Notes").classes("w-full").props("outlined rows=3")
+        notes_input = ui.textarea("Additional Notes").classes("w-full bg-gray-900 text-white").props("outlined rows=3")
         
         def on_confirm():
             if not reason_select.value:
@@ -331,7 +361,18 @@ def show_close_dialog(call_id: int):
 
 
 def confirm_delete(call_id: int):
-    """Confirm and delete service call"""
+    """Confirm and delete service call (must be Closed first)"""
+    # Check status before allowing delete
+    conn = get_conn()
+    try:
+        row = conn.execute("SELECT status FROM ServiceCalls WHERE ID = ?", (call_id,)).fetchone()
+        status = row[0] if row else None
+        if status != "Closed":
+            ui.notify(f"Cannot delete: Service call must be Closed first (current status: {status})", type="warning")
+            return
+    finally:
+        conn.close()
+
     with ui.dialog() as dialog, ui.card().classes("gcc-card p-6"):
         ui.label("Delete Service Call?").classes("text-xl font-bold mb-2 text-red-400")
         ui.label(f"Ticket #{call_id}").classes("text-sm gcc-muted mb-4")
@@ -369,8 +410,8 @@ def show_print_call(call: Dict[str, Any]):
 
         # Build data payload expected by generator
         data = {
-            "customer": call.get('customer') or call.get('customer_name') or '—',
-            "location": call.get('location') or call.get('location_address') or '—',
+            "customer": call.get('customer') or call.get('customer_name') or (f"Customer #{call.get('customer_id')}") if call.get('customer_id') else '—',
+            "location": call.get('location') or call.get('location_address') or (f"Location #{call.get('location_id')}") if call.get('location_id') else '—',
             "customer_phone": "—",
             "customer_email": "—",
             "unit_id": call.get('unit_id', 0),
@@ -464,7 +505,11 @@ def show_print_call(call: Dict[str, Any]):
         ui.notify(f"PDF generation failed: {e}", type="negative")
 
 
-def show_print_form(title: str, description: str, materials: str, labor: str, priority: str, status: str):
+def show_print_form(title: str, description: str, materials: str, labor: str, priority: str, status: str,
+                    customer: Optional[Dict[str, Any]] = None,
+                    location: Optional[Dict[str, Any]] = None,
+                    unit: Optional[Dict[str, Any]] = None,
+                    telemetry: Optional[Dict[str, Any]] = None):
     """Show printable version of form before submission - matching PDF format"""
     from datetime import datetime
     
@@ -484,6 +529,42 @@ def show_print_form(title: str, description: str, materials: str, labor: str, pr
             with ui.column():
                 ui.label("Status").classes("text-xs font-bold gcc-muted")
                 ui.label(status).classes("font-mono text-sm")
+
+        # Customer / Location / Unit
+        with ui.grid(columns=2).classes("gap-3 mb-3 w-full"):
+            if customer:
+                cust_name = customer.get("company") or f"{customer.get('first_name','')} {customer.get('last_name','')}" .strip()
+                cust_txt = f"Customer: {cust_name}"
+            else:
+                cust_txt = "Customer: —"
+            loc_txt = f"Location: {location.get('address1') or '—'}" if location else "Location: —"
+            ui.label(cust_txt).classes("text-xs")
+            ui.label(loc_txt).classes("text-xs")
+        if unit:
+            unit_txt_parts = []
+            unit_txt_parts.append(unit.get("unit_tag") or f"Unit {unit.get('unit_id','')}")
+            make_model = " ".join(filter(None, [unit.get("make"), unit.get("model")]))
+            if make_model:
+                unit_txt_parts.append(make_model)
+            if unit.get("tonnage"):
+                unit_txt_parts.append(f"{unit.get('tonnage')} Ton")
+            if unit.get("refrigerant_type"):
+                unit_txt_parts.append(unit.get("refrigerant_type"))
+            ui.label("Unit: " + " | ".join(unit_txt_parts)).classes("text-xs mb-2")
+
+        if telemetry:
+            mode = telemetry.get("mode") or "—"
+            sup = telemetry.get("supply_temp") or telemetry.get("supply_temp_f") or "—"
+            ret = telemetry.get("return_temp") or telemetry.get("return_temp_f") or "—"
+            delta = telemetry.get("delta_t") or telemetry.get("delta_t_f") or "—"
+            fan = telemetry.get("fan_speed_percent") or "—"
+            stat = telemetry.get("unit_status") or telemetry.get("status_color") or "—"
+            ts = telemetry.get("ts") or telemetry.get("last_update") or ""
+            alert = telemetry.get("alert_message") or ""
+            ui.label(f"Mode: {mode} | Supply: {sup} | Return: {ret} | ΔT: {delta} | Fan: {fan}%").classes("text-xs")
+            ui.label(f"Status: {stat} | Updated: {ts}").classes("text-xs")
+            if alert:
+                ui.label(f"Alert: {alert}").classes("text-xs text-red-500")
         
         ui.separator().classes("my-3")
         
@@ -497,12 +578,7 @@ def show_print_form(title: str, description: str, materials: str, labor: str, pr
         ui.label("Title").classes("text-xs font-bold")
         ui.label(title or "(Not filled)").classes("text-sm mb-3 whitespace-pre-wrap")
         
-        # Description
-        if description:
-            ui.separator().classes("my-3")
-            ui.label("General Description").classes("text-xs font-bold")
-            with ui.element().classes("bg-gray-100 p-3 rounded text-xs mb-3"):
-                ui.label(description).classes("text-xs whitespace-pre-wrap")
+        # Description removed (unused)
         
         # Materials
         if materials:
@@ -561,8 +637,10 @@ def show_print_all(search_term: str, status: str, priority: str, customer_id: Op
 
                         # Details row
                         with ui.grid(columns=5).classes("gap-2 text-xs"):
-                            ui.label(f"Customer: {call.get('customer_name') or call.get('customer') or 'N/A'}")
-                            ui.label(f"Location: {call.get('location_address') or call.get('location') or 'N/A'}")
+                            cust_txt = call.get('customer_name') or call.get('customer') or (f"Customer #{call.get('customer_id')}") if call.get('customer_id') else 'N/A'
+                            loc_txt = call.get('location_address') or call.get('location') or (f"Location #{call.get('location_id')}") if call.get('location_id') else 'N/A'
+                            ui.label(f"Customer: {cust_txt}")
+                            ui.label(f"Location: {loc_txt}")
                             eq_type = call.get('equipment_type', 'RTU')
                             unit_txt = f"{eq_type}-{call.get('unit_id')}" if call.get("unit_id") else (call.get('unit_name') or "—")
                             ui.label(f"Unit: {unit_txt}")
@@ -592,9 +670,9 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
     
     from datetime import datetime
     
-    with ui.card().classes("gcc-card p-6 max-w-5xl"):
+    with ui.dialog() as dialog, ui.card().classes("gcc-card p-8 max-w-5xl max-h-[90vh] overflow-auto"):
         # ===== HEADER SECTION =====
-        ui.label("SERVICE ORDER").classes("text-2xl font-bold mb-1")
+        ui.label("WORK ORDER").classes("text-2xl font-bold mb-1")
         ui.label("GCC Technology HVAC Service").classes("text-sm gcc-muted mb-4")
         
         ui.separator().classes("my-3")
@@ -621,13 +699,17 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
             with ui.column().classes("w-1/2"):
                 ui.label("CONTACT INFORMATION").classes("text-sm font-bold border-b pb-2 mb-3")
                 
-                # Customer selection (admin/tech only)
+                # Customer selection (admin/tech only); client role sees read-only label
                 if hierarchy <= 3 and not customer_id:
                     customers = list_customers(search="")
                     customer_options = {c["ID"]: c.get("company") or f"{c.get('first_name','')} {c.get('last_name','')}" for c in customers}
                     customer_select = ui.select(customer_options, label="Customer *").classes("w-full mb-2").props("outlined dense")
+                    current_customer_label = None
                 else:
                     customer_select = None
+                    cust_obj = get_customer(customer_id) if customer_id else None
+                    cust_name = cust_obj.get("company") if cust_obj else "—"
+                    current_customer_label = ui.label(f"Customer: {cust_name}").classes("text-sm gcc-muted mb-2")
                 
                 # Location
                 location_select = ui.select({}, label="Location").classes("w-full mb-2").props("outlined dense")
@@ -656,15 +738,7 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
                     ).classes("w-full").props("outlined dense")
                 
                 ui.label("ALERT SUMMARY").classes("text-xs font-bold mt-3 mb-1")
-                alert_display = ui.textarea(value="No alerts").classes("w-full text-xs").props("readonly rows=3")
-        
-        ui.separator().classes("my-4")
-        
-        # ===== TITLE / BRIEF DESCRIPTION =====
-        title_input = ui.input("Work Order Title *", placeholder="Brief description of the service issue").classes("w-full mb-2").props("outlined")
-        
-        # ===== GENERAL DESCRIPTION =====
-        description_input = ui.textarea("GENERAL DESCRIPTION [TECH TO FILL]", placeholder="Detailed description of the issue and findings").classes("w-full mb-4").props("outlined autogrow")
+                alert_display = ui.textarea(value="No alerts").classes("w-full text-xs bg-gray-900 text-white").props("readonly rows=3")
         
         ui.separator().classes("my-4")
         
@@ -673,7 +747,8 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
         materials_input = ui.textarea(
             value="",
             placeholder="List all materials and services provided (one per line or as needed)"
-        ).classes("w-full").props("outlined rows=6 autogrow")
+        ).classes("w-full mb-2 bg-gray-900 text-white").props("outlined rows=6 autogrow")
+        ui.button("Open materials editor", icon="edit_note", on_click=lambda: open_editor_dialog("Materials & Services", materials_input, 900)).props("outline dense")
         
         ui.separator().classes("my-4")
         
@@ -682,7 +757,8 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
         labor_input = ui.textarea(
             value="",
             placeholder="Describe labor performed, time spent, and any recommendations"
-        ).classes("w-full").props("outlined rows=6 autogrow")
+        ).classes("w-full mb-2 bg-gray-900 text-white").props("outlined rows=6 autogrow")
+        ui.button("Open labor editor", icon="edit_note", on_click=lambda: open_editor_dialog("Labor Description", labor_input, 900)).props("outline dense")
         
         ui.separator().classes("my-4")
         
@@ -698,28 +774,77 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
                 ui.label("User ID: " + str(user.get("ID") or "—")).classes("text-xs gcc-muted")
         
         # ===== DYNAMIC CASCADING SELECTS =====
+        def open_editor_dialog(label: str, target_input, max_len: int):
+            """Popup editor with character limit and counter"""
+            with ui.dialog() as edialog, ui.card().classes("gcc-card p-4 max-w-4xl"):
+                ui.label(f"{label} (max {max_len} chars)").classes("text-sm font-semibold mb-2")
+                counter_label = ui.label("").classes("text-xs gcc-muted mb-2")
+                editor = ui.textarea(value=target_input.value or "").classes("w-full bg-gray-900 text-white").props(f"rows=10 maxlength={max_len} counter")
+
+                def update_counter():
+                    val = editor.value or ""
+                    counter_label.text = f"{len(val)}/{max_len} chars"
+                    counter_label.update()
+                editor.on_value_change(lambda e: update_counter())
+                update_counter()
+
+                with ui.row().classes("justify-end gap-2 mt-3"):
+                    ui.button("Cancel", on_click=edialog.close).props("flat")
+                    def save_back():
+                        target_input.value = editor.value or ""
+                        target_input.update()
+                        edialog.close()
+                    ui.button("Save", on_click=save_back).props("color=green")
+            edialog.open()
+
+        def set_locations_for_customer(cust_id: Optional[int]):
+            """Populate locations/units when customer is known (includes client role)."""
+            locations = list_locations(customer_id=cust_id) if cust_id else []
+            location_select.options = {loc["ID"]: loc.get("PropertyName") or loc.get("address1", "Unknown") for loc in locations}
+            # Auto-select first location if none chosen yet
+            if locations and not location_select.value:
+                location_select.value = locations[0]["ID"]
+            else:
+                location_select.value = location_select.value if location_select.value in location_select.options else None
+            location_select.update()
+            set_units_for_location(location_select.value)
+            update_info_display()
+
+        def set_units_for_location(loc_id: Optional[int]):
+            units = list_units(location_id=loc_id) if loc_id else []
+            unit_select.options = {u["unit_id"]: u.get("unit_tag") or f"RTU-{u['unit_id']}" for u in units}
+            if units and not unit_select.value:
+                unit_select.value = units[0]["unit_id"]
+            else:
+                unit_select.value = unit_select.value if unit_select.value in unit_select.options else None
+            unit_select.update()
+            update_info_display()
+
         def on_customer_change():
             if customer_select:
                 cust_id = customer_select.value
-                if cust_id:
-                    locations = list_locations(customer_id=cust_id)
-                    location_select.options = {loc["ID"]: loc.get("PropertyName") or loc.get("address1", "Unknown") for loc in locations}
-                    location_select.value = None
-                    location_select.update()
-                    update_info_display()
+                set_locations_for_customer(cust_id)
         
         def on_location_change():
             loc_id = location_select.value
-            if loc_id:
-                units = list_units(location_id=loc_id)
-                unit_select.options = {u["unit_id"]: u.get("unit_tag") or f"RTU-{u['unit_id']}" for u in units}
-                unit_select.value = None
-                unit_select.update()
-                update_info_display()
+            set_units_for_location(loc_id)
         
+        def _get_latest_reading(u_id: int):
+            """Fetch latest telemetry row for unit"""
+            try:
+                with get_conn() as conn:
+                    row = conn.execute(
+                        "SELECT * FROM UnitReadings WHERE unit_id = ? ORDER BY reading_id DESC LIMIT 1",
+                        (u_id,),
+                    ).fetchone()
+                    return dict(row) if row else None
+            except Exception:
+                return None
+
         def update_info_display():
-            """Update info label with location/unit details"""
+            """Update info label with location/unit details and latest telemetry"""
             text_parts = []
+            # Location details
             if location_select.value:
                 locs = list_locations(customer_id=customer_select.value if customer_select else customer_id)
                 loc = next((l for l in locs if l["ID"] == location_select.value), None)
@@ -730,9 +855,11 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
                     text_parts.append(f"📍 {addr}")
                     if city or state:
                         text_parts.append(f"   {city}, {state}")
-            
+
+            latest = None
+            # Unit details + telemetry
             if unit_select.value:
-                units = list_units(location_id=location_select.value)
+                units = list_units(location_id=location_select.value) if location_select.value else []
                 unit = next((u for u in units if u["unit_id"] == unit_select.value), None)
                 if unit:
                     eq_type = unit.get('equipment_type', 'Unit')
@@ -740,39 +867,66 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
                     model = unit.get('model', '?')
                     tonnage = unit.get('tonnage', '')
                     refrig = unit.get('refrigerant_type', '')
+                    serial = unit.get('serial', '')
                     details = f"{make} {model}"
                     if tonnage:
                         details += f" ({tonnage} Ton)"
                     if refrig:
                         details += f" - {refrig}"
+                    if serial:
+                        details += f" | SN: {serial}"
                     text_parts.append(f"🔧 {eq_type}: {details}")
-            
+
+                    latest = _get_latest_reading(unit_select.value)
+                    if latest:
+                        mode = latest.get("mode") or "—"
+                        sup = latest.get("supply_temp") or latest.get("supply_temp_f") or "—"
+                        ret = latest.get("return_temp") or latest.get("return_temp_f") or "—"
+                        delta = latest.get("delta_t") or latest.get("delta_t_f") or "—"
+                        fan = latest.get("fan_speed_percent") or "—"
+                        stat = latest.get("unit_status") or latest.get("status_color") or "—"
+                        alert = latest.get("alert_message") or ""
+                        ts = latest.get("ts") or latest.get("last_update") or ""
+                        text_parts.append(f"📡 Mode: {mode} | Supply: {sup} | Return: {ret} | ΔT: {delta} | Fan: {fan}%")
+                        text_parts.append(f"⚙️ Status: {stat} | Updated: {ts}")
+                        if alert:
+                            text_parts.append(f"⚠️ {alert}")
+
             info_label.text = "\n".join(text_parts) if text_parts else "(Select location & unit)"
+            info_label.update()
         
         if customer_select:
             customer_select.on_value_change(on_customer_change)
         location_select.on_value_change(on_location_change)
         unit_select.on_value_change(lambda: update_info_display())
+
+        # Pre-populate selections and info for client role
+        if customer_id and not customer_select:
+            set_locations_for_customer(customer_id)
+            update_info_display()
+        else:
+            update_info_display()
         
         # ===== SUBMIT BUTTON =====
         def on_submit():
-            # Validation
-            if not title_input.value:
-                ui.notify("Work Order Title is required", type="negative")
-                return
-            
             final_customer_id = customer_select.value if customer_select else customer_id
             if not final_customer_id:
                 ui.notify("Customer is required", type="negative")
                 return
+
+            # Derive a short title from materials (fallback to generic)
+            title_value = (materials_input.value or "").strip()
+            if title_value:
+                title_value = title_value.split("\n")[0][:80]
+            else:
+                title_value = "Work Order"
             
-            # Create service call
             data = {
                 "customer_id": final_customer_id,
                 "location_id": location_select.value,
                 "unit_id": unit_select.value,
-                "title": title_input.value,
-                "description": description_input.value,
+                "title": title_value,
+                "description": "",
                 "priority": priority_select.value,
                 "status": status_select.value,
                 "requested_by_login_id": user.get("login_id") or user.get("ID"),
@@ -783,24 +937,70 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
             try:
                 call_id = create_service_call(data)
                 ui.notify(f"✓ Service Order #{call_id} created successfully!", type="positive")
-                # Clear form
-                title_input.value = ""
-                description_input.value = ""
                 ui.navigate.to("/tickets")
             except Exception as e:
                 ui.notify(f"Error creating service call: {e}", type="negative")
         
-        with ui.row().classes("justify-between gap-2 mt-6"):
-            ui.button("Print Form", icon="print", on_click=lambda: show_print_form(
-                title_input.value, description_input.value, materials_input.value, 
-                labor_input.value, priority_select.value, status_select.value
-            )).props("outline")
-            ui.button("Create Service Order", icon="add", on_click=on_submit).props("color=green size=md")
+        with ui.row().classes("justify-end gap-2 mt-6"):
+            ui.button("Cancel", on_click=dialog.close).props("flat")
+            def build_print_context():
+                # Resolve effective customer from selection or current user
+                eff_customer_id = None
+                if customer_select and customer_select.value:
+                    eff_customer_id = int(customer_select.value)
+                elif customer_id:
+                    eff_customer_id = customer_id
+
+                cust_obj = get_customer(eff_customer_id) if eff_customer_id else None
+
+                loc_obj = None
+                if location_select.value and eff_customer_id:
+                    locs = list_locations(customer_id=eff_customer_id)
+                    loc_obj = next((l for l in locs if l["ID"] == location_select.value), None)
+
+                unit_obj = None
+                if unit_select.value:
+                    units = list_units(location_id=location_select.value) if location_select.value else []
+                    unit_obj = next((u for u in units if u["unit_id"] == unit_select.value), None)
+
+                latest = _get_latest_reading(unit_select.value) if unit_select.value else None
+                return cust_obj, loc_obj, unit_obj, latest
+
+            ui.button("Print Form", icon="print", on_click=lambda: (
+                lambda ctx: show_print_form(
+                    (materials_input.value or "Work Order").split("\n")[0][:80] or "Work Order",
+                    "", materials_input.value, 
+                    labor_input.value, priority_select.value, status_select.value,
+                    customer=ctx[0], location=ctx[1], unit=ctx[2], telemetry=ctx[3]
+                )
+            )(build_print_context())).props("outline")
+            ui.button("Create Service Order", icon="add", on_click=on_submit).props("color=green")
+    
+    dialog.open()
 
 
-def show_edit_dialog(call: Dict[str, Any]):
-    """Show dialog to edit service call"""
+def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Dict[str, Any]] = None, hierarchy: int = 5):
+    """Unified dialog to view, edit, or create service call
+    
+    Args:
+        call: Service call data dict
+        mode: 'view' for read-only, 'edit' for editable, 'create' for new
+        user: Current user dict (required for create mode)
+        hierarchy: User hierarchy level (required for create mode)
+    """
+    def _safe_int(val):
+        try:
+            return int(val) if val is not None else None
+        except Exception:
+            return None
+
     call_id = call.get("ID")
+    existing_customer_id = _safe_int(call.get("customer_id"))
+    existing_location_id = _safe_int(call.get("location_id"))
+    existing_unit_id = _safe_int(call.get("unit_id"))
+    
+    is_readonly = (mode == "view")
+    is_create = (mode == "create")
     
     # Sanitize status and priority values from database
     status_val = call.get("status") or "Open"
@@ -811,52 +1011,145 @@ def show_edit_dialog(call: Dict[str, Any]):
     if priority_val not in ["Low", "Normal", "High", "Emergency"]:
         priority_val = "Normal"
     
-    with ui.dialog() as dialog, ui.card().classes("gcc-card p-6 min-w-[600px]"):
-        ui.label(f"Edit Service Call #{call_id}").classes("text-xl font-bold mb-4")
-        
-        title_input = ui.input("Title", value=call.get("title", "")).classes("w-full")
-        
+    with ui.dialog() as dialog, ui.card().classes("p-6 min-w-[720px] max-w-5xl bg-gray-900"):
+        if is_create:
+            dialog_title = "New Service Call"
+            title_text = dialog_title
+        else:
+            dialog_title = "View Service Call" if is_readonly else "Edit Service Call"
+            title_text = f"{dialog_title} #{call_id}"
+        ui.label(title_text).classes("text-xl font-bold mb-4")
+
+        # Title (read-only, auto-generated)
+        with ui.row().classes("w-full mb-3 items-center gap-2"):
+            ui.label("Title:").classes("text-sm font-semibold")
+            ui.label(call.get("title", "Work Order")).classes("text-sm gcc-muted")
+
+        # Contact & equipment selectors
+        with ui.grid(columns=3).classes("gap-4 w-full mb-3"):
+            # Customer (admin/tech can change, or readonly for client role)
+            customers = list_customers(search="")
+            customer_options = {c["ID"]: c.get("company") or f"{c.get('first_name','')} {c.get('last_name','')}" for c in customers}
+            # Ensure existing value is present for display even if not in options
+            if existing_customer_id and existing_customer_id not in customer_options:
+                customer_options[existing_customer_id] = call.get("customer") or call.get("customer_name") or "Customer"
+            # Readonly for view mode or client role in create mode
+            readonly_prop = "readonly" if (is_readonly or (is_create and hierarchy == 4)) else ""
+            customer_select = ui.select(customer_options, value=existing_customer_id, label="Customer").classes("w-full bg-gray-800").props(f"outlined dense {readonly_prop}")
+
+            # Location (cascades from customer)
+            initial_locations = list_locations(customer_id=existing_customer_id) if existing_customer_id else []
+            location_options = {loc["ID"]: loc.get("PropertyName") or loc.get("address1", "Unknown") for loc in initial_locations}
+            if existing_location_id and existing_location_id not in location_options:
+                location_options[existing_location_id] = call.get("location") or call.get("location_address") or "Location"
+            location_select = ui.select(location_options, value=existing_location_id, label="Location").classes("w-full bg-gray-800").props(f"outlined dense {readonly_prop}")
+
+            # Unit (cascades from location)
+            initial_units = list_units(location_id=existing_location_id) if existing_location_id else []
+            unit_options = {u["unit_id"]: u.get("unit_tag") or f"RTU-{u['unit_id']}" for u in initial_units}
+            if existing_unit_id and existing_unit_id not in unit_options:
+                unit_options[existing_unit_id] = call.get("unit") or call.get("unit_name") or "Unit"
+            unit_select = ui.select(unit_options, value=existing_unit_id, label="Equipment Unit").classes("w-full bg-gray-800").props(f"outlined dense {readonly_prop}")
+
+        # Status / Priority
         with ui.grid(columns=2).classes("gap-4 w-full"):
             status_select = ui.select(
                 {"Open": "Open", "In Progress": "In Progress", "Closed": "Closed"},
                 value=status_val,
                 label="Status"
-            ).props("outlined dense")
-            
+            ).classes("bg-gray-800").props(f"outlined dense {readonly_prop}")
             priority_select = ui.select(
                 {"Low": "Low", "Normal": "Normal", "High": "High", "Emergency": "Emergency"},
                 value=priority_val,
                 label="Priority"
-            ).props("outlined dense")
-        
-        description_input = ui.textarea("Description", value=call.get("description", "")).classes("w-full").props("rows=4")
-        
+            ).classes("bg-gray-800").props(f"outlined dense {readonly_prop}")
+
         ui.separator().classes("my-2")
         ui.label("Materials & Labor").classes("text-sm font-semibold mb-2")
-        
-        materials_input = ui.textarea("Materials/Services", value=call.get("materials_services", "")).classes("w-full").props("rows=3")
-        labor_input = ui.textarea("Labor Description", value=call.get("labor_description", "")).classes("w-full").props("rows=3")
-        
+        materials_input = ui.textarea("Materials/Services", value=call.get("materials_services", "")).classes("w-full bg-gray-900 text-white").props(f"rows=3 {readonly_prop}")
+        labor_input = ui.textarea("Labor Description", value=call.get("labor_description", "")).classes("w-full bg-gray-900 text-white").props(f"rows=3 {readonly_prop}")
+
         def on_save():
+            # Final selections
+            final_customer_id = customer_select.value or existing_customer_id
+            final_location_id = location_select.value or existing_location_id
+            final_unit_id = unit_select.value or existing_unit_id
+            
+            if not final_customer_id:
+                ui.notify("Customer is required", type="negative")
+                return
+            
+            # Derive title from materials if creating
+            if is_create:
+                title_value = (materials_input.value or "").strip()
+                if title_value:
+                    title_value = title_value.split("\n")[0][:80]
+                else:
+                    title_value = "Work Order"
+            else:
+                title_value = call.get("title", "Work Order")
+
             data = {
-                "title": title_input.value,
-                "description": description_input.value,
+                "title": title_value,
+                "description": call.get("description", ""),
                 "status": status_select.value,
                 "priority": priority_select.value,
+                "customer_id": final_customer_id,
+                "location_id": final_location_id,
+                "unit_id": final_unit_id,
                 "materials_services": materials_input.value,
                 "labor_description": labor_input.value
             }
             
-            if update_service_call(call_id, data):
-                ui.notify("Service call updated", type="positive")
-                dialog.close()
-                ui.navigate.reload()
+            if is_create:
+                data["requested_by_login_id"] = user.get("login_id") or user.get("ID") if user else None
+                try:
+                    new_id = create_service_call(data)
+                    ui.notify(f"✓ Service Call #{new_id} created successfully!", type="positive")
+                    dialog.close()
+                    ui.navigate.reload()
+                except Exception as e:
+                    ui.notify(f"Error creating service call: {e}", type="negative")
             else:
-                ui.notify("Failed to update service call", type="negative")
+                if update_service_call(call_id, data):
+                    ui.notify("Service call updated", type="positive")
+                    dialog.close()
+                    ui.navigate.reload()
+                else:
+                    ui.notify("Failed to update service call", type="negative")
         
+        # Cascading handlers
+        def on_customer_change():
+            cust_id = customer_select.value
+            locs = list_locations(customer_id=cust_id) if cust_id else []
+            location_select.options = {loc["ID"]: loc.get("PropertyName") or loc.get("address1", "Unknown") for loc in locs}
+            location_select.value = None
+            location_select.update()
+            unit_select.options = {}
+            unit_select.value = None
+            unit_select.update()
+
+        def on_location_change():
+            loc_id = location_select.value
+            units = list_units(location_id=loc_id) if loc_id else []
+            unit_select.options = {u["unit_id"]: u.get("unit_tag") or f"RTU-{u['unit_id']}" for u in units}
+            if units:
+                # keep previous unit if still under this location
+                if existing_unit_id and any(u["unit_id"] == existing_unit_id for u in units):
+                    unit_select.value = existing_unit_id
+            unit_select.update()
+
+        # Only enable cascading handlers in edit mode
+        if not is_readonly:
+            customer_select.on_value_change(lambda: on_customer_change())
+            location_select.on_value_change(lambda: on_location_change())
+
         with ui.row().classes("justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close).props("flat")
-            ui.button("Save", icon="save", on_click=on_save).props("color=green")
+            ui.button("Close", on_click=dialog.close).props("flat")
+            if not is_readonly:
+                save_label = "Create" if is_create else "Save"
+                save_icon = "add" if is_create else "save"
+                ui.button(save_label, icon=save_icon, on_click=on_save).props("color=green")
     
     dialog.open()
 
@@ -1043,8 +1336,8 @@ def render_ticket_form(customer_id: Optional[int], user: Dict[str, Any], hierarc
             location_select = ui.select({}, label="Location").classes("w-full")
             unit_select = ui.select({}, label="Equipment Unit").classes("w-full")
         
-        description_input = ui.textarea("Description", placeholder="Detailed description of the issue").classes("w-full").props("rows=4")
-        notes_input = ui.textarea("Internal Notes", placeholder="Notes for technicians").classes("w-full").props("rows=2")
+        description_input = ui.textarea("Description", placeholder="Detailed description of the issue").classes("w-full bg-gray-900 text-white").props("rows=4")
+        notes_input = ui.textarea("Internal Notes", placeholder="Notes for technicians").classes("w-full bg-gray-900 text-white").props("rows=2")
         
         def on_customer_change():
             if customer_select:

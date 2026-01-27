@@ -89,3 +89,77 @@ def update_email_settings(payload: Dict[str, Any]) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def send_email(to_email: str, subject: str, body: str, html_body: str = None, pdf_attachment: bytes = None, pdf_filename: str = None, from_email: str = None) -> tuple[bool, str]:
+    """
+    Send email via configured SMTP settings.
+    Returns (success: bool, message: str)
+    
+    Args:
+        from_email: Optional override for sender address (defaults to smtp_from from settings)
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.application import MIMEApplication
+    
+    settings = get_email_settings()
+    
+    # Use provided from_email or fall back to settings
+    sender = from_email if from_email else settings.get("smtp_from")
+    
+    # Validate settings
+    if not all([settings.get("smtp_host"), settings.get("smtp_user"), settings.get("smtp_pass")]):
+        return False, "SMTP settings incomplete (missing host, user, or password)"
+    
+    if not sender:
+        return False, "From email address not provided and not configured in settings"
+    
+    if not to_email or "@" not in to_email:
+        return False, "Invalid recipient email address"
+    
+    try:
+        # Create message
+        msg = MIMEMultipart("mixed")
+        msg["Subject"] = subject
+        msg["From"] = sender
+        msg["To"] = to_email
+        
+        # Add text/html body
+        if html_body:
+            body_part = MIMEMultipart("alternative")
+            body_part.attach(MIMEText(body, "plain"))
+            body_part.attach(MIMEText(html_body, "html"))
+            msg.attach(body_part)
+        else:
+            msg.attach(MIMEText(body, "plain"))
+        
+        # Add PDF attachment if provided
+        if pdf_attachment and pdf_filename:
+            pdf_part = MIMEApplication(pdf_attachment, _subtype="pdf")
+            pdf_part.add_header("Content-Disposition", f"attachment; filename={pdf_filename}")
+            msg.attach(pdf_part)
+        
+        # Connect and send
+        port = int(settings.get("smtp_port", 587))
+        use_tls = settings.get("use_tls", 1)
+        
+        if use_tls:
+            smtp = smtplib.SMTP(settings.get("smtp_host"), port, timeout=10)
+            smtp.starttls()
+        else:
+            smtp = smtplib.SMTP_SSL(settings.get("smtp_host"), port, timeout=10)
+        
+        smtp.login(settings.get("smtp_user"), settings.get("smtp_pass"))
+        smtp.send_message(msg)
+        smtp.quit()
+        
+        return True, f"Email sent successfully to {to_email}"
+    
+    except smtplib.SMTPAuthenticationError:
+        return False, "SMTP authentication failed - check username/password"
+    except smtplib.SMTPException as e:
+        return False, f"SMTP error: {str(e)}"
+    except Exception as e:
+        return False, f"Email error: {str(e)}"

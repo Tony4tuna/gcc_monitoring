@@ -38,68 +38,6 @@ def page():
     with layout("Equipment / Units", show_logout=True, show_back=True, back_to="/"):
 
         # ---------------------------------------------------------
-        # CSS for better visual design
-        # ---------------------------------------------------------
-        ui.add_head_html("""
-        <style>
-            /* CRUD Button Grid - Horizontal compact */
-            .gcc-crud-grid {
-                display: grid;
-                grid-template-columns: repeat(5, 1fr);
-                gap: 0.5rem;
-                margin-bottom: 0.75rem;
-                width: 100%;
-            }
-            
-            .gcc-crud-btn {
-                min-height: 40px;
-                font-size: 12px;
-                font-weight: 600;
-                border-radius: 6px;
-                display: flex;
-                flex-direction: row;
-                align-items: center;
-                justify-content: center;
-                gap: 4px;
-                transition: all 0.2s;
-                white-space: nowrap;
-            }
-            
-            .gcc-crud-btn:hover {
-                transform: translateY(-1px);
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            }
-            
-            /* Equipment main container - wider layout */
-            .gcc-equipment-container {
-                display: flex;
-                flex-direction: column;
-                height: calc(100vh - 280px);
-                gap: 0.75rem;
-            }
-            
-            /* Selector Grid */
-            .gcc-selector-grid {
-                display: grid;
-                grid-template-columns: auto 1fr auto 1fr;
-                gap: 0.75rem;
-                align-items: center;
-                padding: 0.75rem;
-                background: var(--card);
-                border: 1px solid var(--line);
-                border-radius: 8px;
-                flex-shrink: 0;
-            }
-            
-            @media (max-width: 1024px) {
-                .gcc-selector-grid {
-                    grid-template-columns: 1fr 1fr;
-                }
-            }
-        </style>
-        """)
-
-        # ---------------------------------------------------------
         # Load customers
         # ---------------------------------------------------------
         customers = list_customers("")
@@ -108,24 +46,22 @@ def page():
             for c in customers
         }
 
-        # ---------------------------------------------------------
-        # Main equipment container (wider layout)
-        # ---------------------------------------------------------
-        with ui.element("div").classes("gcc-equipment-container"):
-            
-            # Selectors and search
-            if not from_dashboard:
-                with ui.element("div").classes("gcc-selector-grid"):
-                    ui.label("Client:").classes("font-bold text-sm")
-                    customer_sel = ui.select(customer_opts).classes("w-full")
+        # Wrap page content in flex column to allow table to grow + scroll
+        with ui.column().classes("w-full h-full flex-1 min-h-0 gap-3").style("display: flex; flex-direction: column;"):
 
-                    ui.label("Location:").classes("font-bold text-sm")
-                    location_sel = ui.select({}).classes("w-full")
+            # -----------------------------------------------------
+            # Selectors and toolbar - direct in layout like locations.py
+            # -----------------------------------------------------
+            if not from_dashboard:
+                with ui.row().classes("gap-3 w-full items-center flex-wrap"):
+                    ui.label("Client:").classes("font-semibold")
+                    customer_sel = ui.select(customer_opts).classes("w-[520px]")
+                    ui.label("Location:").classes("font-semibold")
+                    location_sel = ui.select({}).classes("w-[400px]")
                 
                 with ui.row().classes("gap-2 w-full items-center"):
                     search = ui.input("Search equipment...").props("dense outlined").classes("flex-1")
-                    ui.label("Units: 0").set_text("Units: 0")
-                    unit_count_label = ui.label("").classes("font-bold text-green-500 ml-auto")
+                    unit_count_label = ui.label("").classes("font-bold text-green-500")
             else:
                 # placeholders (dashboard auto-selects)
                 customer_sel = ui.select({})
@@ -133,34 +69,21 @@ def page():
                 unit_count_label = ui.label("")
                 search = ui.input()
 
-            # ---------------------------------------------------------
+            # -----------------------------------------------------
             # CRUD BUTTONS - Horizontal layout
-            # ---------------------------------------------------------
-            with ui.element("div").classes("gcc-crud-grid"):
-                with ui.button(on_click=lambda: open_unit_dialog("add")).props("no-caps").classes("gcc-crud-btn").style("background: #16a34a; color: white;"):
-                    ui.icon("add_circle", size="18px")
-                    ui.label("Add")
-                
-                with ui.button(on_click=lambda: open_unit_dialog("edit")).props("no-caps").classes("gcc-crud-btn").style("background: #2563eb; color: white;"):
-                    ui.icon("edit", size="18px")
-                    ui.label("Edit")
-                
-                with ui.button(on_click=lambda: open_unit_dialog("delete")).props("no-caps").classes("gcc-crud-btn").style("background: #dc2626; color: white;"):
-                    ui.icon("delete", size="18px")
-                    ui.label("Delete")
-                
-                with ui.button(on_click=lambda: refresh()).props("no-caps outline").classes("gcc-crud-btn").style("border: 2px solid #16a34a; color: #16a34a;"):
-                    ui.icon("refresh", size="18px")
-                    ui.label("Refresh")
-                
-                with ui.button(on_click=lambda: main_table.selected.clear() if main_table.selected else None).props("no-caps outline").classes("gcc-crud-btn").style("border: 2px solid #6b7280; color: #6b7280;"):
-                    ui.icon("clear", size="18px")
-                    ui.label("Clear")
+            # -----------------------------------------------------
+            with ui.row().classes("gap-2 flex-wrap"):
+                ui.button("Add", icon="add_circle", on_click=lambda: open_unit_dialog("add")).props("dense color=positive")
+                ui.button("Edit", icon="edit", on_click=lambda: open_unit_dialog("edit")).props("dense")
+                ui.button("Delete", icon="delete", on_click=lambda: open_unit_dialog("delete")).props("dense color=negative outline")
+                ui.button("Refresh", icon="refresh", on_click=lambda: refresh()).props("dense outline")
+                ui.space()
 
-            # ---------------------------------------------------------
-            # Table with fixed height - scrolls vertically
-            # ---------------------------------------------------------
-            with ui.card().classes("gcc-card flex-1").style("display: flex; flex-direction: column; min-height: 0;"):
+            # -----------------------------------------------------
+            # Table - flex grows to fill, scrolls internally
+            # -----------------------------------------------------
+            with ui.card().classes("gcc-card w-full flex-1 min-h-0") \
+                    .style("display: flex; flex-direction: column; overflow: hidden; max-width: 1280px; align-self: center; width: 100%;"):
                 main_table = ui.table(
                     columns=[
                         {"name": "unit_tag", "label": "Unit Tag", "field": "unit_tag"},
@@ -173,9 +96,23 @@ def page():
                     rows=[],
                     row_key="unit_id",
                     selection="single",
-                    pagination={"rowsPerPage": 12},
-                ).classes("w-full").style("flex: 1; min-height: 0;")
+                    pagination={"rowsPerPage": 15},
+                ).classes("w-full") \
+                 .style("flex: 1; min-height: 0; overflow: hidden;")
                 main_table.props("dense bordered virtual-scroll")
+
+            # Legend footer (maintains container boundaries)
+            with ui.card().classes("gcc-card p-3 flex-shrink-0"):
+                ui.label("Actions Legend").classes("text-sm font-semibold mb-2")
+                with ui.row().classes("gap-3 items-center text-sm flex-wrap"):
+                    ui.button(icon="add_circle").props("flat dense round color=positive").tooltip("Add")
+                    ui.label("Add")
+                    ui.button(icon="edit").props("flat dense round color=grey-6").tooltip("Edit")
+                    ui.label("Edit")
+                    ui.button(icon="delete").props("flat dense round color=red").tooltip("Delete")
+                    ui.label("Delete")
+                    ui.button(icon="refresh").props("flat dense round color=grey-6").tooltip("Refresh")
+                    ui.label("Refresh")
 
         # ---------------------------------------------------------
         # CRUD Dialog Functions
@@ -273,7 +210,6 @@ def page():
                 for r in rows:
                     if int(r["unit_id"]) == focus_unit_id:
                         main_table.selected = [r]
-                        update_details()
                         break
 
         # ---------------------------------------------------------

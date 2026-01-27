@@ -62,6 +62,7 @@ def get_service_call(call_id: int) -> Optional[Dict[str, Any]]:
 #---------------------------------
 def list_service_calls(
     customer_id: Optional[int] = None,
+    location_id: Optional[int] = None,
     status: Optional[str] = None,
     priority: Optional[str] = None,
     limit: int = 100,
@@ -72,8 +73,12 @@ def list_service_calls(
     query = """
     SELECT 
         sc.*,
-        c.company as customer_name,
-        p.address1 as location_address,
+        COALESCE(
+            NULLIF(c.company, ''),
+            NULLIF(TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')), ''),
+            NULLIF(c.email, '')
+        ) AS customer_name,
+        COALESCE(NULLIF(p.address1, ''), NULLIF(p.address2, '')) as location_address,
         u.unit_tag as unit_name
     FROM ServiceCalls sc
     LEFT JOIN Customers c ON sc.customer_id = c.ID
@@ -86,6 +91,10 @@ def list_service_calls(
     if customer_id:
         query += " AND sc.customer_id = ?"
         params.append(customer_id)
+
+    if location_id:
+        query += " AND sc.location_id = ?"
+        params.append(location_id)
 
     if status:
         query += " AND sc.status = ?"
@@ -228,8 +237,12 @@ def search_service_calls(search: str, customer_id: Optional[int] = None):
     query = """
     SELECT
         sc.*,
-        c.company AS customer_name,
-        p.address1 AS location_address,
+        COALESCE(
+            NULLIF(c.company, ''),
+            NULLIF(TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')), ''),
+            NULLIF(c.email, '')
+        ) AS customer_name,
+        COALESCE(NULLIF(p.address1, ''), NULLIF(p.address2, '')) AS location_address,
         u.unit_tag AS unit_name
     FROM ServiceCalls sc
     LEFT JOIN Customers c ON sc.customer_id = c.ID

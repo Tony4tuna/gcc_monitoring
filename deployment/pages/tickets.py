@@ -292,7 +292,7 @@ def show_close_dialog(call_id: int):
         ui.label("Select a reason for closing this ticket:").classes("text-sm gcc-muted mb-3")
         
         reason_select = ui.select(close_reasons, label="Closing Reason *").classes("w-full")
-        notes_input = ui.textarea("Additional Notes").classes("w-full").props("outlined rows=3")
+        notes_input = ui.textarea("Additional Notes").classes("w-full bg-gray-900 text-white").props("outlined rows=3")
         
         def on_confirm():
             if not reason_select.value:
@@ -656,7 +656,7 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
                     ).classes("w-full").props("outlined dense")
                 
                 ui.label("ALERT SUMMARY").classes("text-xs font-bold mt-3 mb-1")
-                alert_display = ui.textarea(value="No alerts").classes("w-full text-xs").props("readonly rows=3")
+                alert_display = ui.textarea(value="No alerts").classes("w-full text-xs bg-gray-900 text-white").props("readonly rows=3")
         
         ui.separator().classes("my-4")
         
@@ -664,7 +664,7 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
         title_input = ui.input("Work Order Title *", placeholder="Brief description of the service issue").classes("w-full mb-2").props("outlined")
         
         # ===== GENERAL DESCRIPTION =====
-        description_input = ui.textarea("GENERAL DESCRIPTION [TECH TO FILL]", placeholder="Detailed description of the issue and findings").classes("w-full mb-4").props("outlined autogrow")
+        description_input = ui.textarea("GENERAL DESCRIPTION [TECH TO FILL]", placeholder="Detailed description of the issue and findings").classes("w-full mb-4 bg-gray-900 text-white").props("outlined autogrow")
         
         ui.separator().classes("my-4")
         
@@ -673,7 +673,7 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
         materials_input = ui.textarea(
             value="",
             placeholder="List all materials and services provided (one per line or as needed)"
-        ).classes("w-full").props("outlined rows=6 autogrow")
+        ).classes("w-full bg-gray-900 text-white").props("outlined rows=6 autogrow")
         
         ui.separator().classes("my-4")
         
@@ -682,7 +682,7 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
         labor_input = ui.textarea(
             value="",
             placeholder="Describe labor performed, time spent, and any recommendations"
-        ).classes("w-full").props("outlined rows=6 autogrow")
+        ).classes("w-full bg-gray-900 text-white").props("outlined rows=6 autogrow")
         
         ui.separator().classes("my-4")
         
@@ -829,13 +829,13 @@ def show_edit_dialog(call: Dict[str, Any]):
                 label="Priority"
             ).props("outlined dense")
         
-        description_input = ui.textarea("Description", value=call.get("description", "")).classes("w-full").props("rows=4")
+        description_input = ui.textarea("Description", value=call.get("description", "")).classes("w-full bg-gray-900 text-white").props("rows=4")
         
         ui.separator().classes("my-2")
         ui.label("Materials & Labor").classes("text-sm font-semibold mb-2")
         
-        materials_input = ui.textarea("Materials/Services", value=call.get("materials_services", "")).classes("w-full").props("rows=3")
-        labor_input = ui.textarea("Labor Description", value=call.get("labor_description", "")).classes("w-full").props("rows=3")
+        materials_input = ui.textarea("Materials/Services", value=call.get("materials_services", "")).classes("w-full bg-gray-900 text-white").props("rows=3")
+        labor_input = ui.textarea("Labor Description", value=call.get("labor_description", "")).classes("w-full bg-gray-900 text-white").props("rows=3")
         
         def on_save():
             data = {

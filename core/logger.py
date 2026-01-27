@@ -24,9 +24,9 @@ log_file = log_dir / f"app_{datetime.now().strftime('%Y%m%d')}.log"
 file_handler = logging.FileHandler(log_file, encoding='utf-8')
 file_handler.setLevel(logging.DEBUG)
 
-# Console handler
+# Console handler - DISABLED for development
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
+console_handler.setLevel(logging.CRITICAL)  # Only show critical errors in console
 
 # Formatter
 formatter = logging.Formatter(

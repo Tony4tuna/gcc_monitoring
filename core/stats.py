@@ -34,8 +34,11 @@ def get_summary_counts() -> Dict[str, int]:
             "locations" if _table_exists(conn, "locations") else None
         )
 
-        equipment_table = "equipments" if _table_exists(conn, "equipments") else (
-            "equipment" if _table_exists(conn, "equipment") else None
+        # Equipment table: prefer HVAC schema 'Units', fallback to generic names
+        equipment_table = "Units" if _table_exists(conn, "Units") else (
+            "equipments" if _table_exists(conn, "equipments") else (
+                "equipment" if _table_exists(conn, "equipment") else None
+            )
         )
 
         return {
