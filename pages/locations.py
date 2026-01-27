@@ -55,6 +55,7 @@ def page():
                     {"name": "zip", "label": "Zip", "field": "zip"},
                     {"name": "contact", "label": "Contact", "field": "contact"},
                     {"name": "job_phone", "label": "Job Phone", "field": "job_phone"},
+                    {"name": "business_name", "label": "Business Name", "field": "business_name"},
                     {"name": "res", "label": "Res", "field": "res"},
                     {"name": "com", "label": "Com", "field": "com"},
                 ],
@@ -98,6 +99,11 @@ def page():
             for r in rows:
                 r["res"] = "✔" if int(r.get("residential") or 0) == 1 else ""
                 r["com"] = "✔" if int(r.get("commercial") or 0) == 1 else ""
+                # Show business name for commercial properties
+                if int(r.get("commercial") or 0) == 1 and r.get("business_name"):
+                    r["business_name"] = r.get("business_name", "")
+                else:
+                    r["business_name"] = ""
             table.rows = rows
             table.update()
             empty_label.visible = len(rows) == 0
@@ -116,10 +122,12 @@ def page():
 
             if mode == "delete":
                 def do_delete():
-                    delete_location(int(selected["ID"]))
+                    location_id = int(selected["ID"])
+                    location_address = selected.get("address1", "Unknown")
+                    delete_location(location_id)
                     dialog.close()
                     refresh()
-                    ui.notify("Deleted", type="positive")
+                    ui.notify(f"✓ Location deleted: {location_address}", type="positive", timeout=3000)
 
                 with ui.dialog() as dialog:
                     with ui.card().classes("p-6 gcc-card"):
@@ -144,17 +152,28 @@ def page():
                 "extendednotes": selected.get("extendednotes", "") if selected else "",
                 "residential": int(selected.get("residential") or 0) if selected else 0,
                 "commercial": int(selected.get("commercial") or 0) if selected else 0,
+                "business_name": selected.get("business_name", "") if selected else "",
             }
 
             def do_save():
                 data["custid"] = int(customer_id.value)
-                if mode == "add":
-                    create_location(data)
-                else:
-                    update_location(int(selected["ID"]), data)
-                dialog.close()
-                refresh()
-                ui.notify("Saved", type="positive")
+                try:
+                    if mode == "add":
+                        new_id = create_location(data)
+                        msg = f"✓ Location #{new_id} created successfully"
+                        if data.get("commercial") and data.get("business_name"):
+                            msg += f" - Business: {data['business_name']}"
+                        ui.notify(msg, type="positive", timeout=3000)
+                    else:
+                        update_location(int(selected["ID"]), data)
+                        msg = f"✓ Location #{selected['ID']} updated successfully"
+                        if data.get("commercial") and data.get("business_name"):
+                            msg += f" - Business: {data['business_name']}"
+                        ui.notify(msg, type="positive", timeout=3000)
+                    dialog.close()
+                    refresh()
+                except Exception as e:
+                    ui.notify(f"✗ Save failed: {str(e)}", type="negative", timeout=5000)
 
             with ui.dialog() as dialog:
                 with ui.card().classes("w-[920px] max-w-[95vw] p-6 gcc-card"):
@@ -175,7 +194,17 @@ def page():
 
                     with ui.row().classes("gap-6 mt-2"):
                         ui.checkbox("Residential").bind_value(data, "residential")
-                        ui.checkbox("Commercial").bind_value(data, "commercial")
+                        commercial_check = ui.checkbox("Commercial").bind_value(data, "commercial")
+
+                    # Business name for commercial properties (LLC name)
+                    business_name_input = ui.input("Business Name (LLC/Corporation)").bind_value(data, "business_name").classes("w-full")
+                    business_name_input.set_visibility(data.get("commercial", 0) == 1)
+                    
+                    def toggle_business_name():
+                        business_name_input.set_visibility(data.get("commercial", 0) == 1)
+                        business_name_input.update()
+                    
+                    commercial_check.on_value_change(lambda: toggle_business_name())
 
                     ui.textarea("Notes").bind_value(data, "notes").classes("w-full min-h-[180px] resize-y mt-4")
                     ui.textarea("Extended Notes").bind_value(data, "extendednotes").classes("w-full min-h-[240px] resize-y")

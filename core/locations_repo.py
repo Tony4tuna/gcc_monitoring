@@ -27,6 +27,7 @@ def list_locations(search: str = "", customer_id: Optional[int] = None) -> List[
         extendednotes,
         residential,
         commercial,
+        business_name,
         date_created
     FROM PropertyLocations
     WHERE 1=1
@@ -76,8 +77,8 @@ def create_location(data: Dict[str, Any]) -> int:
                 address1, address2, city, state, zip,
                 contact, job_phone, job_phone2,
                 notes, extendednotes,
-                residential, commercial
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                residential, commercial, business_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 int(data["custid"]),
@@ -94,6 +95,7 @@ def create_location(data: Dict[str, Any]) -> int:
                 data.get("extendednotes", "").strip(),
                 int(data.get("residential", 0)),
                 int(data.get("commercial", 0)),
+                data.get("business_name", "").strip(),
             ),
         )
         conn.commit()
@@ -109,7 +111,7 @@ def update_location(location_id: int, data: Dict[str, Any]) -> None:
                 address1 = ?, address2 = ?, city = ?, state = ?, zip = ?,
                 contact = ?, job_phone = ?, job_phone2 = ?,
                 notes = ?, extendednotes = ?,
-                residential = ?, commercial = ?
+                residential = ?, commercial = ?, business_name = ?
             WHERE ID = ?
             """,
             (
@@ -127,6 +129,7 @@ def update_location(location_id: int, data: Dict[str, Any]) -> None:
                 data.get("extendednotes", "").strip(),
                 int(data.get("residential", 0)),
                 int(data.get("commercial", 0)),
+                data.get("business_name", "").strip(),
                 location_id,
             ),
         )
