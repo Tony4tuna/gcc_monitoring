@@ -420,7 +420,7 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     for _ in range(note_lines):
         y -= 12
         c.line(left, y, right, y)
-    y -= 18
+    y -= 30  # extra spacing before signature
 
     # Signature line at bottom
     c.setFont("Helvetica", 10)
