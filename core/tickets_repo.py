@@ -99,8 +99,7 @@ def create_service_call(data: Dict[str, Any]) -> int:
         conn.commit()
         call_id = cur.lastrowid
     
-    # Auto-email on creation (especially for client-created tickets)
-    _send_ticket_email(call_id, data)
+    # Note: Auto-email removed - user must manually send via Email button
     
     return call_id
 
@@ -174,13 +173,57 @@ def list_service_calls(
 
 
 
-def send_ticket_email(call_id: int) -> tuple[bool, str]:
-    """Manually send ticket email to admin (from button click)"""
+def send_ticket_email(call_id: int, to_email: str = None) -> tuple[bool, str]:
+    """Manually send ticket email with PDF attachment
+    
+    Args:
+        call_id: Ticket ID
+        to_email: Optional recipient email (defaults to admin email from settings)
+    """
+    from core.ticket_document import generate_ticket_pdf
+    from core.email_settings import send_email, get_email_settings
+    import os
+    
     call = get_service_call(call_id)
     if not call:
         return False, "Ticket not found"
     
-    return _send_ticket_email(call_id, call)
+    # Get recipient email
+    if not to_email:
+        settings = get_email_settings()
+        to_email = settings.get("smtp_from")
+    
+    if not to_email:
+        return False, "Recipient email not provided and admin email not configured"
+    
+    # Generate PDF
+    try:
+        pdf_path, pdf_bytes = generate_ticket_pdf(call_id)
+        pdf_filename = os.path.basename(pdf_path)
+    except Exception as e:
+        return False, f"PDF generation failed: {e}"
+    
+    # Send email with PDF attachment
+    subject = f"Service Ticket #{call_id} - {call.get('title', 'No Title')}"
+    body = f"""Service ticket details attached.
+
+Ticket ID: {call_id}
+Title: {call.get('title', 'N/A')}
+Status: {call.get('status', 'N/A')}
+Priority: {call.get('priority', 'N/A')}
+
+Please see attached PDF for complete details.
+"""
+    
+    success, msg = send_email(
+        to_email=to_email,
+        subject=subject,
+        body=body,
+        pdf_attachment=pdf_bytes,
+        pdf_filename=pdf_filename
+    )
+    
+    return success, msg
 
 
 def update_service_call(call_id: int, data: Dict[str, Any]) -> bool:

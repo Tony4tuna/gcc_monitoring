@@ -365,14 +365,94 @@ def show_close_dialog(call_id: int):
 
 
 def send_ticket_email(call_id: int):
-    """Send ticket email to admin"""
-    from core.tickets_repo import send_ticket_email as send_email_repo
+    """Send ticket email with recipient picker dialog"""
+    from core.tickets_repo import send_ticket_email as send_email_repo, get_service_call
+    from core.email_settings import get_email_settings
+    from core.customers_repo import get_customer
     
-    success, msg = send_email_repo(call_id)
-    if success:
-        ui.notify(f"✓ Email sent: {msg}", type="positive")
-    else:
-        ui.notify(f"Email failed: {msg}", type="warning")
+    # Get ticket details
+    call = get_service_call(call_id)
+    if not call:
+        ui.notify("Ticket not found", type="negative")
+        return
+    
+    # Get available recipients
+    settings = get_email_settings()
+    admin_email = settings.get("smtp_from", "")
+    
+    customer_email = ""
+    if call.get("customer_id"):
+        customer = get_customer(call.get("customer_id"))
+        if customer:
+            customer_email = customer.get("email", "")
+    
+    with ui.dialog() as dialog, ui.card().classes("gcc-card p-6 max-w-xl"):
+        ui.label(f"Send Ticket #{call_id} via Email").classes("text-xl font-bold mb-4")
+        ui.label("PDF will be attached to email").classes("text-sm gcc-muted mb-4")
+        
+        ui.separator().classes("my-3")
+        
+        # Recipient options
+        ui.label("Select Recipients:").classes("text-sm font-bold mb-2")
+        
+        admin_check = ui.checkbox(f"Admin: {admin_email if admin_email else '(not configured)'}").classes("mb-2")
+        admin_check.value = True if admin_email else False
+        admin_check.enabled = bool(admin_email)
+        
+        customer_check = ui.checkbox(f"Customer: {customer_email if customer_email else '(no email on file)'}").classes("mb-2")
+        customer_check.value = False
+        customer_check.enabled = bool(customer_email)
+        
+        # Custom email input
+        ui.label("Additional Recipients (comma-separated):").classes("text-sm font-bold mt-3 mb-1")
+        custom_input = ui.input(placeholder="email1@example.com, email2@example.com").classes("w-full").props("outlined dense")
+        
+        ui.separator().classes("my-3")
+        
+        def on_send():
+            recipients = []
+            
+            if admin_check.value and admin_email:
+                recipients.append(admin_email)
+            
+            if customer_check.value and customer_email:
+                recipients.append(customer_email)
+            
+            if custom_input.value:
+                custom_emails = [e.strip() for e in custom_input.value.split(",") if e.strip()]
+                recipients.extend(custom_emails)
+            
+            if not recipients:
+                ui.notify("Please select at least one recipient", type="warning")
+                return
+            
+            # Send to all recipients
+            success_count = 0
+            fail_count = 0
+            errors = []
+            
+            for recipient in recipients:
+                success, msg = send_email_repo(call_id, to_email=recipient)
+                if success:
+                    success_count += 1
+                else:
+                    fail_count += 1
+                    errors.append(f"{recipient}: {msg}")
+            
+            dialog.close()
+            
+            if fail_count == 0:
+                ui.notify(f"✓ Email sent to {success_count} recipient(s)", type="positive")
+            elif success_count > 0:
+                ui.notify(f"⚠ Sent to {success_count}, failed {fail_count}", type="warning")
+            else:
+                ui.notify(f"✗ All emails failed: {'; '.join(errors[:2])}", type="negative")
+        
+        with ui.row().classes("justify-end gap-2 mt-4"):
+            ui.button("Cancel", on_click=dialog.close).props("flat")
+            ui.button("Send Email", icon="send", on_click=on_send).props("color=blue")
+    
+    dialog.open()
 
 
 def confirm_delete(call_id: int):
@@ -492,8 +572,9 @@ def show_print_call(call: Dict[str, Any]):
         finally:
             conn.close()
 
-        ticket_no = _generate_ticket_no(call.get('ID', 0))
-        pdf_path, pdf_bytes = generate_service_order_pdf(ticket_no, data, health, alerts, company)
+        # Use centralized PDF generator
+        from core.ticket_document import generate_ticket_pdf
+        pdf_path, pdf_bytes = generate_ticket_pdf(call_id)
 
         # Offer user choice: preview/print or download
         pdf_b64 = base64.b64encode(pdf_bytes).decode("ascii")
@@ -1039,6 +1120,18 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
         with ui.row().classes("w-full mb-3 items-center gap-2"):
             ui.label("Title:").classes("text-sm font-semibold")
             ui.label(call.get("title", "Work Order")).classes("text-sm gcc-muted")
+        
+        # Created date (editable for backdating)
+        if not is_create:
+            with ui.row().classes("w-full mb-3 items-center gap-2"):
+                ui.label("Created:").classes("text-sm font-semibold")
+                created_str = call.get("created", "")
+                # Extract date portion (YYYY-MM-DD) if timestamp format
+                if created_str and " " in created_str:
+                    created_str = created_str.split(" ")[0]
+                created_input = ui.input(value=created_str, label="Date (YYYY-MM-DD)").classes("w-48 bg-gray-800").props(f"outlined dense {readonly_prop}")
+        else:
+            created_input = None
 
         # Contact & equipment selectors
         with ui.grid(columns=3).classes("gap-4 w-full mb-3"):
@@ -1115,6 +1208,10 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
                 "materials_services": materials_input.value,
                 "labor_description": labor_input.value
             }
+            
+            # Add created date if editing and changed
+            if not is_create and created_input and created_input.value:
+                data["created"] = created_input.value
             
             if is_create:
                 data["requested_by_login_id"] = user.get("login_id") or user.get("ID") if user else None
