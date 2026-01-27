@@ -1197,15 +1197,9 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
                 ui.notify("Customer is required", type="negative")
                 return
             
-            # Derive title from materials if creating
-            if is_create:
-                title_value = (materials_input.value or "").strip()
-                if title_value:
-                    title_value = title_value.split("\n")[0][:80]
-                else:
-                    title_value = "Work Order"
-            else:
-                title_value = title_input.value if title_input else call.get("title", "Work Order")
+            # Derive title from first line of materials (both create & edit)
+            title_value = (materials_input.value or "").strip()
+            title_value = title_value.split("\n")[0][:80] if title_value else "Work Order"
 
             data = {
                 "title": title_value,
