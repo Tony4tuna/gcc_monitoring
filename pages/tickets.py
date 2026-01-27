@@ -420,7 +420,7 @@ def send_ticket_email(call_id: int):
         
         # Custom email input
         ui.label("Additional Recipients (comma-separated):").classes("text-sm font-bold mt-3 mb-1")
-        custom_input = ui.input(placeholder="email1@example.com, email2@example.com").classes("w-full").props("outlined dense")
+        custom_input = ui.input(placeholder="user@company.com, another@company.com").classes("w-full").props("outlined dense")
         
         ui.separator().classes("my-3")
         
