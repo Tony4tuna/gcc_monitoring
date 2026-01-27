@@ -368,10 +368,13 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
         c.drawString(left, y, "No units assigned")
         y -= 20
 
-    # Add materials and labor sections with boxes like the old form
+    # Add materials and labor sections with dividers, larger boxes (~800 chars), and note + signature lines
     y -= 10
+    c.line(left, y, right, y)
+    y -= 14
+
     box_width = right - left
-    box_height = 60
+    box_height = 132  # ~11 lines at 12px each (~800 chars wrapped)
 
     # Materials box
     c.setFont("Helvetica-Bold", 11)
@@ -380,14 +383,17 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     c.rect(left, y - box_height, box_width, box_height, stroke=1, fill=0)
     c.setFont("Helvetica", 10)
     materials_text = ticket.get('materials_services') or "—"
-    materials_lines = simpleSplit(materials_text, "Helvetica", 10, box_width - 8)
+    materials_lines = simpleSplit(materials_text, "Helvetica", 10, box_width - 12)
     y_line = y - 12
     for line in materials_lines:
         if y_line <= y - box_height:
             break
-        c.drawString(left + 6, y_line, line)
+        c.drawString(left + 8, y_line, line)
         y_line -= 12
     y = y - box_height - 16
+
+    c.line(left, y, right, y)
+    y -= 14
 
     # Labor box
     c.setFont("Helvetica-Bold", 11)
@@ -396,16 +402,27 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     c.rect(left, y - box_height, box_width, box_height, stroke=1, fill=0)
     c.setFont("Helvetica", 10)
     labor_text = ticket.get('labor_description') or "—"
-    labor_lines = simpleSplit(labor_text, "Helvetica", 10, box_width - 8)
+    labor_lines = simpleSplit(labor_text, "Helvetica", 10, box_width - 12)
     y_line = y - 12
     for line in labor_lines:
         if y_line <= y - box_height:
             break
-        c.drawString(left + 6, y_line, line)
+        c.drawString(left + 8, y_line, line)
         y_line -= 12
     y = y - box_height - 20
 
-    # Signature line
+    # Notes area with guide lines
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(left, y, "NOTES")
+    y -= 12
+    note_lines = 3
+    c.setFont("Helvetica", 10)
+    for _ in range(note_lines):
+        y -= 12
+        c.line(left, y, right, y)
+    y -= 18
+
+    # Signature line at bottom
     c.setFont("Helvetica", 10)
     c.drawString(left, y, "Customer Signature: ____________________________   Date: ____________")
     
