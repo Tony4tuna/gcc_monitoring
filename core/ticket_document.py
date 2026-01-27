@@ -229,6 +229,12 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
             loc = dict(loc_row)
             parts = [loc.get('address1'), loc.get('city'), loc.get('state'), loc.get('zip')]
             location_address = ', '.join(p for p in parts if p) or "—"
+            
+            # Add business name if commercial property
+            business_name = loc.get('business_name', '').strip()
+            commercial = loc.get('commercial', 0)
+            if commercial and business_name:
+                location_address = f"{business_name}\n{location_address}"
     
     conn.close()
     
@@ -296,8 +302,13 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     c.setFont("Helvetica", 10)
     c.drawRightString(right, y_client, f"Customer: {customer_name}")
     y_client -= 12
-    c.drawRightString(right, y_client, location_address)
-    y_client -= 12
+    
+    # Draw location address (handle multi-line for business name)
+    location_lines = location_address.split('\n')
+    for line in location_lines:
+        c.drawRightString(right, y_client, line)
+        y_client -= 12
+    
     c.drawRightString(right, y_client, f"Phone: {customer_phone}")
     y_client -= 12
     c.drawRightString(right, y_client, f"Email: {customer_email}")

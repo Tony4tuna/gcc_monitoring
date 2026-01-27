@@ -1117,10 +1117,17 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
             title_text = f"{dialog_title} #{call_id}"
         ui.label(title_text).classes("text-xl font-bold mb-4")
 
-        # Title (read-only, auto-generated)
-        with ui.row().classes("w-full mb-3 items-center gap-2"):
-            ui.label("Title:").classes("text-sm font-semibold")
-            ui.label(call.get("title", "Work Order")).classes("text-sm gcc-muted")
+        # Title (editable in edit mode, auto-generated on create)
+        if is_create:
+            # Auto-generated from materials on create
+            with ui.row().classes("w-full mb-3 items-center gap-2"):
+                ui.label("Title:").classes("text-sm font-semibold")
+                ui.label("Auto-generated from first line of materials").classes("text-sm gcc-muted")
+            title_input = None
+        else:
+            # Editable in edit/view mode
+            with ui.row().classes("w-full mb-3"):
+                title_input = ui.input(value=call.get("title", "Work Order"), label="Title").classes("w-full bg-gray-800").props(f"outlined dense {readonly_prop}")
         
         # Created date (editable for backdating)
         if not is_create:
@@ -1196,7 +1203,7 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
                 else:
                     title_value = "Work Order"
             else:
-                title_value = call.get("title", "Work Order")
+                title_value = title_input.value if title_input else call.get("title", "Work Order")
 
             data = {
                 "title": title_value,
