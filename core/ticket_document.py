@@ -367,6 +367,29 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
         c.setFont("Helvetica", 9)
         c.drawString(left, y, "No units assigned")
         y -= 20
+
+    # Add materials and labor sections
+    y -= 10
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(left, y, "MATERIALS / SERVICES")
+    y -= 14
+    c.setFont("Helvetica", 10)
+    materials_text = ticket.get('materials_services') or "—"
+    materials_lines = simpleSplit(materials_text, "Helvetica", 10, right - left)
+    for line in materials_lines:
+        c.drawString(left, y, line)
+        y -= 12
+    y -= 8
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(left, y, "LABOR DESCRIPTION")
+    y -= 14
+    c.setFont("Helvetica", 10)
+    labor_text = ticket.get('labor_description') or "—"
+    labor_lines = simpleSplit(labor_text, "Helvetica", 10, right - left)
+    for line in labor_lines:
+        c.drawString(left, y, line)
+        y -= 12
     
     # Save PDF
     c.save()

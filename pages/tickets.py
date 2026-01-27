@@ -370,6 +370,7 @@ def send_ticket_email(call_id: int):
     from core.tickets_repo import send_ticket_email as send_email_repo, get_service_call
     from core.email_settings import get_email_settings
     from core.customers_repo import get_customer
+    from core.settings_repo import list_employees
     
     # Get ticket details
     call = get_service_call(call_id)
@@ -387,6 +388,14 @@ def send_ticket_email(call_id: int):
         if customer:
             customer_email = customer.get("email", "")
     
+    # Employee recipients (levels 1-3 only, with email)
+    employees = list_employees()
+    employee_options = {
+        emp.get("email"): f"{emp.get('first_name','')} {emp.get('last_name','')} (Role {emp.get('security_clearance','')})"
+        for emp in employees
+        if emp.get("email") and str(emp.get("security_clearance", "")).strip() in {"1", "2", "3", 1, 2, 3}
+    }
+
     with ui.dialog() as dialog, ui.card().classes("gcc-card p-6 max-w-xl"):
         ui.label(f"Send Ticket #{call_id} via Email").classes("text-xl font-bold mb-4")
         ui.label("PDF will be attached to email").classes("text-sm gcc-muted mb-4")
@@ -403,6 +412,11 @@ def send_ticket_email(call_id: int):
         customer_check = ui.checkbox(f"Customer: {customer_email if customer_email else '(no email on file)'}").classes("mb-2")
         customer_check.value = False
         customer_check.enabled = bool(customer_email)
+
+        # Employee multi-select (levels 1-3)
+        emp_select = ui.select(employee_options, multiple=True, with_input=True, clearable=True, label="Employees (levels 1-3)") \
+            .classes("w-full") \
+            .props("use-chips dense outlined")
         
         # Custom email input
         ui.label("Additional Recipients (comma-separated):").classes("text-sm font-bold mt-3 mb-1")
@@ -419,6 +433,11 @@ def send_ticket_email(call_id: int):
             if customer_check.value and customer_email:
                 recipients.append(customer_email)
             
+            # Employees
+            if emp_select.value:
+                recipients.extend(emp_select.value if isinstance(emp_select.value, list) else [emp_select.value])
+            
+            # Custom emails
             if custom_input.value:
                 custom_emails = [e.strip() for e in custom_input.value.split(",") if e.strip()]
                 recipients.extend(custom_emails)
@@ -1132,7 +1151,7 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
             with ui.row().classes("w-full mb-3"):
                 title_input = ui.input(value=call.get("title", "Work Order"), label="Title").classes("w-full bg-gray-800").props(f"outlined dense {readonly_prop}")
         
-        # Created date (editable for backdating)
+        # Created date (editable for backdating) with calendar picker
         if not is_create:
             with ui.row().classes("w-full mb-3 items-center gap-2"):
                 ui.label("Created:").classes("text-sm font-semibold")
@@ -1140,7 +1159,7 @@ def show_edit_dialog(call: Dict[str, Any], mode: str = "edit", user: Optional[Di
                 # Extract date portion (YYYY-MM-DD) if timestamp format
                 if created_str and " " in created_str:
                     created_str = created_str.split(" ")[0]
-                created_input = ui.input(value=created_str, label="Date (YYYY-MM-DD)").classes("w-48 bg-gray-800").props(f"outlined dense {readonly_prop}")
+                created_input = ui.input(value=created_str, label="Created Date").classes("w-48 bg-gray-800").props(f"outlined dense type=date {readonly_prop}")
         else:
             created_input = None
 
