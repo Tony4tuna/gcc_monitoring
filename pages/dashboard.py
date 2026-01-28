@@ -615,18 +615,12 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
     with ui.element("div").classes("gcc-dashboard-grid-item"):
         ui.label("Service Tickets").classes("text-lg font-bold mb-2")
         
-        # Ticket counts stats
+        # Ticket counts stats - simple text display
         stats = get_service_call_stats(customer_id)
-        with ui.row().classes("gap-3 mb-4"):
-            with ui.card().classes("gcc-card p-3 flex-1"):
-                ui.label("Open").classes("text-xs gcc-muted")
-                ui.label(str(stats.get("open", 0))).classes("text-2xl font-bold text-blue-400")
-            with ui.card().classes("gcc-card p-3 flex-1"):
-                ui.label("In Progress").classes("text-xs gcc-muted")
-                ui.label(str(stats.get("in_progress", 0))).classes("text-2xl font-bold text-yellow-400")
-            with ui.card().classes("gcc-card p-3 flex-1"):
-                ui.label("Closed").classes("text-xs gcc-muted")
-                ui.label(str(stats.get("closed", 0))).classes("text-2xl font-bold text-green-400")
+        with ui.row().classes("gap-6 mb-3 items-center"):
+            ui.label(f"Open: {stats.get('open', 0)}").classes("text-blue-400 font-bold")
+            ui.label(f"In Progress: {stats.get('in_progress', 0)}").classes("text-yellow-400 font-bold")
+            ui.label(f"Closed: {stats.get('closed', 0)}").classes("text-green-400 font-bold")
         
         # Filters
         with ui.row().classes("gap-3 items-center flex-wrap mb-2"):
