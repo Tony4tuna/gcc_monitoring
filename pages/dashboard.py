@@ -610,15 +610,28 @@ def render_admin_units_grid(stats: dict, tickets_by_unit: dict) -> None:
 # =========================================================
 
 def render_tickets_grid(customer_id: Optional[int]) -> None:
-    from core.tickets_repo import list_service_calls, search_service_calls
+    from core.tickets_repo import list_service_calls, search_service_calls, get_service_call_stats
     
     with ui.element("div").classes("gcc-dashboard-grid-item"):
         ui.label("Service Tickets").classes("text-lg font-bold mb-2")
         
+        # Ticket counts stats
+        stats = get_service_call_stats(customer_id)
+        with ui.row().classes("gap-3 mb-4"):
+            with ui.card().classes("gcc-card p-3 flex-1"):
+                ui.label("Open").classes("text-xs gcc-muted")
+                ui.label(str(stats.get("open", 0))).classes("text-2xl font-bold text-blue-400")
+            with ui.card().classes("gcc-card p-3 flex-1"):
+                ui.label("In Progress").classes("text-xs gcc-muted")
+                ui.label(str(stats.get("in_progress", 0))).classes("text-2xl font-bold text-yellow-400")
+            with ui.card().classes("gcc-card p-3 flex-1"):
+                ui.label("Closed").classes("text-xs gcc-muted")
+                ui.label(str(stats.get("closed", 0))).classes("text-2xl font-bold text-green-400")
+        
         # Filters
         with ui.row().classes("gap-3 items-center flex-wrap mb-2"):
             search_input = ui.input("Search").classes("w-60")
-            status_filter = ui.select(["All", "Open", "In Progress", "Closed"], value="All", label="Status").classes("w-32")
+            status_filter = ui.select(["All", "Open", "In Progress", "Closed"], value="Open", label="Status").classes("w-32")
             priority_filter = ui.select(["All", "Low", "Normal", "High", "Emergency"], value="All", label="Priority").classes("w-32")
         
         # Action buttons
@@ -637,6 +650,7 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
             {"name": "title", "label": "Title", "field": "title", "align": "left"},
             {"name": "customer", "label": "Customer", "field": "customer", "align": "left"},
             {"name": "location", "label": "Location", "field": "location", "align": "left"},
+            {"name": "units", "label": "Units", "field": "units", "align": "center"},
             {"name": "status", "label": "Status", "field": "status", "align": "center"},
             {"name": "priority", "label": "Priority", "field": "priority", "align": "center"},
             {"name": "created", "label": "Created", "field": "created", "align": "left"},
@@ -676,17 +690,41 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
             else:
                 calls = list_service_calls(customer_id=customer_id, status=status, priority=priority)
 
+            from core.db import get_conn
+            
             rows = []
             for call in calls:
                 customer_name = call.get("customer_name")
                 if not customer_name and call.get("customer_id"):
                     customer_name = f"Customer #{call.get('customer_id')}"
 
+                # Get unit count for this ticket
+                unit_count = 0
+                try:
+                    conn = get_conn()
+                    row = conn.execute(
+                        "SELECT COUNT(*) as cnt FROM TicketUnits WHERE ticket_id = ?",
+                        (call.get("ID"),)
+                    ).fetchone()
+                    unit_count = row[0] if row else 0
+                    conn.close()
+                except Exception:
+                    unit_count = 0
+                
+                # Format units display with warning for >4
+                if unit_count > 4:
+                    units_display = f"⚠️ {unit_count}"
+                elif unit_count > 0:
+                    units_display = str(unit_count)
+                else:
+                    units_display = "—"
+
                 rows.append({
                     "ID": call.get("ID"),
                     "title": (call.get("title") or "Untitled")[:60],
                     "customer": (customer_name or "—")[:40],
                     "location": (call.get("location_address") or "—")[:60],
+                    "units": units_display,
                     "status": call.get("status", "—"),
                     "priority": call.get("priority", "—"),
                     "created": (call.get("created") or "")[:16],

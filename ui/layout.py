@@ -45,9 +45,45 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
       body { 
         background: var(--bg); 
         color: var(--text);
-        overflow: hidden; /* Prevent body scroll */
+        overflow: hidden; /* Prevent body scroll on desktop */
         margin: 0;
         padding: 0;
+      }
+      
+      /* Mobile: Allow scrolling */
+      @media (max-width: 768px) {
+        body {
+          overflow: auto !important;
+        }
+        
+        .gcc-page-container {
+          height: auto !important;
+          min-height: 100vh;
+          overflow: visible !important;
+        }
+        
+        .gcc-content-wrapper {
+          overflow: visible !important;
+          min-height: auto !important;
+        }
+        
+        .gcc-page-with-table {
+          height: auto !important;
+        }
+        
+        .gcc-grid-container {
+          height: auto !important;
+          min-height: 300px !important;
+          overflow: visible !important;
+        }
+        
+        .gcc-table-wrapper {
+          min-height: 400px !important;
+        }
+        
+        .gcc-fixed-table .q-table__middle {
+          max-height: 500px !important;
+        }
       }
 
       /* Cards */

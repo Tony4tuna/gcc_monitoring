@@ -77,9 +77,9 @@ def get_company_profile() -> Dict[str, Any]:
 
 def get_ticket_units(ticket_id: int) -> List[Dict[str, Any]]:
     """
-    Get units for a ticket (supports 1-4 units)
+    Get units for a ticket (supports multiple units with page 2 for >4)
     Checks TicketUnits junction table first, falls back to ServiceCalls.unit_id
-    Returns list of unit dicts with all specs
+    Returns list of unit dicts with all specs (NO LIMIT)
     """
     from core.db import get_conn
     
@@ -87,14 +87,13 @@ def get_ticket_units(ticket_id: int) -> List[Dict[str, Any]]:
     units = []
     
     try:
-        # First try junction table (multi-unit)
+        # First try junction table (multi-unit) - NO LIMIT
         junction_rows = conn.execute("""
             SELECT u.*
             FROM TicketUnits tu
             JOIN Units u ON tu.unit_id = u.unit_id
             WHERE tu.ticket_id = ?
             ORDER BY tu.sequence_order
-            LIMIT 4
         """, (ticket_id,)).fetchall()
         
         if junction_rows:
@@ -243,7 +242,7 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     
     # Use ticket ID only (not control fields)
     ticket_no = str(ticket_id)
-    unit_label = f"RTU-{units[0].get('unit_id')}" if units else "UNIT"
+    unit_label = f"RTU-{units[0].get('unit_id', '?')}" if units else "UNIT"
     filename = f"ServiceOrder_{datetime.now().strftime('%Y%m%d')}-{ticket_no.zfill(4)}_{unit_label}.pdf"
     pdf_path = os.path.join("reports", "service_orders", filename)
     
@@ -326,8 +325,8 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     y -= 16
     
     # Units table (bordered grid) - always draw 4 rows to reserve space
-    col_widths = [60, 60, 80, 60, 50, 70, 50, 80]
-    col_headers = ["Tag", "Type", "Make", "Model", "Tons", "Refrig", "V", "Serial"]
+    col_widths = [50, 50, 70, 100, 70, 50, 80]
+    col_headers = ["Tag", "Type", "Make", "Model", "Refrig", "V", "Serial"]
     row_height = 20
     
     # Header row
@@ -354,19 +353,25 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
                 unit.get('equipment_type') or 'RTU',
                 unit.get('make') or '—',
                 unit.get('model') or '—',
-                str(unit.get('tonnage') or '—'),
                 unit.get('refrigerant_type') or '—',
                 str(unit.get('voltage') or '—'),
                 unit.get('serial') or '—'
             ]
         else:
-            values = [''] * 8  # empty row - leave blank
+            values = [''] * 7  # empty row - leave blank (7 columns)
         
         for i, val in enumerate(values):
             c.drawString(x + 4, y - 14, str(val)[:15])  # Truncate if too long
             x += col_widths[i]
         
         y -= row_height
+    
+    # If more than 4 units, add "See Attachment" note
+    if len(units) > 4:
+        y -= 8
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(left, y, "** See Attachment for Complete Unit List **")
+        y -= 8
 
     # Add materials and labor sections with dividers, larger boxes (~800 chars), and note + signature lines
     y -= 10
@@ -425,6 +430,69 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     # Signature line at bottom
     c.setFont("Helvetica", 10)
     c.drawString(left, y, "Customer Signature: ____________________________   Date: ____________")
+    
+    # ============================================
+    # PAGE 2: ATTACHMENT - Complete Unit List (if >4 units)
+    # ============================================
+    print(f"DEBUG: Total units for ticket {ticket_id}: {len(units)}")  # Debug logging
+    if len(units) > 4:
+        print(f"DEBUG: Page 2 triggered! Creating attachment page...")  # Debug logging
+        c.showPage()  # Start new page
+        
+        # Page 2 Header
+        y = letter[1] - 40
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(left, y, f"ATTACHMENT - Service Ticket #{ticket_id}")
+        y -= 20
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(left, y, "Complete Equipment List")
+        y -= 30
+        
+        # All units table with full details
+        c.setFont("Helvetica-Bold", 9)
+        col_widths_full = [50, 50, 70, 100, 70, 50, 80]
+        col_headers_full = ["Tag", "Type", "Make", "Model", "Refrig", "V", "Serial"]
+        row_height = 20
+        
+        # Header row
+        x = left
+        c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
+        for i, header in enumerate(col_headers_full):
+            c.drawString(x + 4, y - 14, header)
+            x += col_widths_full[i]
+        y -= row_height
+        
+        # All unit rows
+        c.setFont("Helvetica", 9)
+        for unit in units:
+            # Check if we need a new page
+            if y < 80:
+                c.showPage()
+                y = letter[1] - 40
+                c.setFont("Helvetica-Bold", 9)
+                x = left
+                c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
+                for i, header in enumerate(col_headers_full):
+                    c.drawString(x + 4, y - 14, header)
+                    x += col_widths_full[i]
+                y -= row_height
+                c.setFont("Helvetica", 9)
+            
+            c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
+            x = left
+            values = [
+                unit.get('unit_tag') or f"RTU-{unit.get('unit_id', '?')}",
+                unit.get('equipment_type') or 'RTU',
+                unit.get('make') or '—',
+                unit.get('model') or '—',
+                unit.get('refrigerant_type') or '—',
+                str(unit.get('voltage') or '—'),
+                unit.get('serial') or '—'
+            ]
+            for i, val in enumerate(values):
+                c.drawString(x + 4, y - 14, str(val)[:20])  # Longer truncate for Model
+                x += col_widths_full[i]
+            y -= row_height
     
     # Save PDF
     c.save()
