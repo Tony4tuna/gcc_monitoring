@@ -23,14 +23,14 @@ def ensure_email_settings_table() -> None:
         CREATE TABLE IF NOT EXISTS EmailSettings (
           id INTEGER PRIMARY KEY CHECK (id = 1),
           smtp_host TEXT,
-          smtp_port INTEGER DEFAULT 587,
+          smtp_port INTEGER DEFAULT 2525,
           use_tls INTEGER DEFAULT 1,
           smtp_user TEXT,
           smtp_pass TEXT,
           smtp_from TEXT
         )
         """)
-        conn.execute("INSERT OR IGNORE INTO EmailSettings (id, smtp_port, use_tls) VALUES (1, 587, 1)")
+        conn.execute("INSERT OR IGNORE INTO EmailSettings (id, smtp_port, use_tls) VALUES (1, 2525, 1)")
         conn.commit()
 
         # If table existed before, make sure smtp_pass exists
@@ -42,7 +42,7 @@ def ensure_email_settings_table() -> None:
         if "use_tls" not in cols:
             conn.execute("ALTER TABLE EmailSettings ADD COLUMN use_tls INTEGER DEFAULT 1")
         if "smtp_port" not in cols:
-            conn.execute("ALTER TABLE EmailSettings ADD COLUMN smtp_port INTEGER DEFAULT 587")
+            conn.execute("ALTER TABLE EmailSettings ADD COLUMN smtp_port INTEGER DEFAULT 2525")
         if "smtp_host" not in cols:
             conn.execute("ALTER TABLE EmailSettings ADD COLUMN smtp_host TEXT")
         if "smtp_user" not in cols:
@@ -80,7 +80,7 @@ def update_email_settings(payload: Dict[str, Any]) -> None:
         WHERE id=1
         """, (
             (payload.get("smtp_host") or "").strip(),
-            int(payload.get("smtp_port") or 587),
+            int(payload.get("smtp_port") or 2525),
             1 if payload.get("use_tls") else 0,
             (payload.get("smtp_user") or "").strip(),
             (payload.get("smtp_pass") or "").strip(),

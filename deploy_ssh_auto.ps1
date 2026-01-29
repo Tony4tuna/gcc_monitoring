@@ -2,7 +2,7 @@
 # Usage: .\deploy_ssh_auto.ps1
 # No password prompts - uses SSH key authentication
 
-$HOST = "gcchvacr.com"
+$TARGET_HOST = "gcchvacr.com"
 $USER = "tony"
 $SSH_KEY_PATH = "$env:USERPROFILE\.ssh\id_ed25519"
 $APP_DIR = "/home/tony/gcc_monitoring"
@@ -19,7 +19,7 @@ Write-Host "================================================" -ForegroundColor C
 Write-Host "  GCC Monitoring - Auto Deployment" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "📍 Target: $USER@$HOST" -ForegroundColor Gray
+Write-Host "📍 Target: $USER@$TARGET_HOST" -ForegroundColor Gray
 Write-Host "🔑 Auth:   SSH Key (no password needed)" -ForegroundColor Green
 Write-Host ""
 
@@ -29,7 +29,7 @@ $startTime = Get-Date
 Write-Host "🚀 Starting deployment..." -ForegroundColor Yellow
 Write-Host ""
 
-ssh -o StrictHostKeyChecking=no -i $SSH_KEY_PATH "$USER@$HOST" @"
+ssh -o StrictHostKeyChecking=no -i $SSH_KEY_PATH "$USER@$TARGET_HOST" @"
     set -e
     cd $APP_DIR
     

@@ -1,7 +1,7 @@
 # ui/layout.py
 from nicegui import ui
 from core.auth import current_user, logout
-from core.version import get_version, get_build_info
+from core.version import get_version, get_build_info, get_software_name
 
 
 def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: int = None, show_back: bool = False, back_to: str = "/"):
@@ -396,7 +396,7 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
             ui.element("div").style("flex: 1 1 auto;")
             ui.separator().classes("my-2")
             build = get_build_info()
-            ui.label(f"v{get_version()} • {build.get('build_date', '—')}").classes("text-xs gcc-muted")
+            ui.label(f"{get_software_name()} v{get_version()} • {build.get('build_date', '—')}").classes("text-xs gcc-muted")
 
     # ------------------------------------------------------------
     # HEADER
@@ -414,7 +414,7 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
                 ).props("flat dense").tooltip("Go back")
             
             # Title
-            ui.label("GCC Monitoring").classes("font-bold")
+            ui.label(get_software_name()).classes("font-bold")
 
         with ui.row().classes("ml-auto items-center gap-2"):
             if user:

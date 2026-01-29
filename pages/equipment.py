@@ -50,17 +50,15 @@ def page():
         with ui.column().classes("w-full h-full flex-1 min-h-0 gap-3").style("display: flex; flex-direction: column;"):
 
             # -----------------------------------------------------
-            # Selectors and toolbar - direct in layout like locations.py
+            # Selectors and toolbar - compact single-line layout
             # -----------------------------------------------------
             if not from_dashboard:
-                with ui.row().classes("gap-3 w-full items-center flex-wrap"):
+                with ui.row().classes("gap-3 w-full items-center flex-wrap mb-2"):
                     ui.label("Client:").classes("font-semibold")
-                    customer_sel = ui.select(customer_opts).classes("w-[520px]")
+                    customer_sel = ui.select(customer_opts).classes("w-[420px]")
                     ui.label("Location:").classes("font-semibold")
-                    location_sel = ui.select({}).classes("w-[400px]")
-                
-                with ui.row().classes("gap-2 w-full items-center"):
-                    search = ui.input("Search equipment...").props("dense outlined").classes("flex-1")
+                    location_sel = ui.select({}).classes("w-[320px]")
+                    search = ui.input("Search...").classes("w-[200px]")
                     unit_count_label = ui.label("").classes("font-bold text-green-500")
             else:
                 # placeholders (dashboard auto-selects)
@@ -72,18 +70,17 @@ def page():
             # -----------------------------------------------------
             # CRUD BUTTONS - Horizontal layout
             # -----------------------------------------------------
-            with ui.row().classes("gap-2 flex-wrap"):
+            with ui.row().classes("gap-2 flex-wrap items-center mb-2"):
                 ui.button("Add", icon="add_circle", on_click=lambda: open_unit_dialog("add")).props("dense color=positive")
-                ui.button("Edit", icon="edit", on_click=lambda: open_unit_dialog("edit")).props("dense")
+                ui.button("Edit", icon="edit", on_click=lambda: open_unit_dialog("edit")).props("dense color=green-10")
                 ui.button("Delete", icon="delete", on_click=lambda: open_unit_dialog("delete")).props("dense color=negative outline")
-                ui.button("Refresh", icon="refresh", on_click=lambda: refresh()).props("dense outline")
-                ui.space()
+                ui.button(icon="refresh", on_click=lambda: refresh()).props("flat dense")
 
             # -----------------------------------------------------
             # Table - flex grows to fill, scrolls internally
             # -----------------------------------------------------
             with ui.card().classes("gcc-card w-full flex-1 min-h-0") \
-                    .style("display: flex; flex-direction: column; overflow: hidden; max-width: 1280px; align-self: center; width: 100%;"):
+                    .style("display: flex; flex-direction: column; overflow: hidden; max-height: 55vh"):
                 main_table = ui.table(
                     columns=[
                         {"name": "unit_tag", "label": "Unit Tag", "field": "unit_tag"},
@@ -101,18 +98,9 @@ def page():
                  .style("flex: 1; min-height: 0; overflow: hidden;")
                 main_table.props("dense bordered virtual-scroll")
 
-            # Legend footer (maintains container boundaries)
-            with ui.card().classes("gcc-card p-3 flex-shrink-0"):
-                ui.label("Actions Legend").classes("text-sm font-semibold mb-2")
-                with ui.row().classes("gap-3 items-center text-sm flex-wrap"):
-                    ui.button(icon="add_circle").props("flat dense round color=positive").tooltip("Add")
-                    ui.label("Add")
-                    ui.button(icon="edit").props("flat dense round color=grey-6").tooltip("Edit")
-                    ui.label("Edit")
-                    ui.button(icon="delete").props("flat dense round color=red").tooltip("Delete")
-                    ui.label("Delete")
-                    ui.button(icon="refresh").props("flat dense round color=grey-6").tooltip("Refresh")
-                    ui.label("Refresh")
+            # Invisible footer card to prevent overflow (keeps container boundaries)
+            with ui.card().classes("gcc-card p-3 flex-shrink-0").style("opacity: 0; pointer-events: none; height: 1px; min-height: 1px; padding: 0;"):
+                ui.label("").classes("text-xs")
 
         # ---------------------------------------------------------
         # CRUD Dialog Functions

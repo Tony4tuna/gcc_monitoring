@@ -23,6 +23,9 @@ from ui.layout import layout
 from core.db import get_conn
 from core.security import hash_password
 from core.customers_repo import list_customers
+from core.version import get_version_info
+import json
+from pathlib import Path
 
 
 def show_notification(message: str, notification_type: str = "info"):
@@ -1213,6 +1216,73 @@ def create_admin_tab() -> ui.card:
     return card
 
 
+def create_version_tab() -> ui.card:
+    """
+    Create version management tab
+    
+    NOTE: This is a JSON-based settings pattern that can be reused for other settings.
+    Pattern:
+    1. Load JSON file with json.load()
+    2. Display fields from JSON
+    3. Update JSON dict with new values
+    4. Save back with json.dump()
+    
+    This same pattern works for any JSON configuration file (e.g., app_settings.json, feature_flags.json, etc.)
+    """
+    with ui.card().style("width: 60%; max-width: 60%;") as card:
+        with ui.column().classes("w-full gap-2"):
+            ui.label("App Version & Branding").classes("text-xl font-bold")
+            ui.label("Manage application version and software name (for white-label rebranding)").classes("gcc-muted text-sm mb-2")
+
+            version_info = get_version_info()
+            fields = {}
+
+            fields["software_name"] = ui.input(label="Software Name", value=version_info.get("software_name", "GCC Monitoring")).classes("w-full")
+            
+            with ui.row().classes("w-full gap-2"):
+                fields["version"] = ui.input(label="Version Number", value=version_info.get("version", "1.0.0")).classes("flex-1")
+                fields["build_date"] = ui.input(label="Build Date (YYYY-MM-DD)", value=version_info.get("build_date", "")).classes("flex-1")
+
+            fields["release_date"] = ui.input(label="Release Date (YYYY-MM-DD)", value=version_info.get("release_date", "")).classes("w-full")
+            fields["description"] = ui.textarea(label="Description", value=version_info.get("description", "")).classes("w-full").props("rows=3")
+
+            def save_version():
+                """Save version info to VERSION file"""
+                try:
+                    version_file = Path(__file__).parent.parent / "VERSION"
+                    
+                    # Load existing data to preserve features array
+                    existing_data = {}
+                    if version_file.exists():
+                        with open(version_file, "r") as f:
+                            existing_data = json.load(f)
+                    
+                    # Update with new values
+                    existing_data["software_name"] = fields["software_name"].value.strip()
+                    existing_data["version"] = fields["version"].value.strip()
+                    existing_data["build_date"] = fields["build_date"].value.strip()
+                    existing_data["release_date"] = fields["release_date"].value.strip()
+                    existing_data["description"] = fields["description"].value.strip()
+                    
+                    # Write back
+                    with open(version_file, "w") as f:
+                        json.dump(existing_data, f, indent=2)
+                    
+                    show_notification("Version updated - refresh page to see changes", "success")
+                    log_user_action("version_update", f"Updated to version {existing_data['version']}")
+                    
+                    # Force reload to clear cache
+                    ui.run_javascript('window.location.reload();')
+                except Exception as e:
+                    show_notification(f"Error saving version: {str(e)}", "error")
+                    handle_error(e, "save_version")
+
+            with ui.row().classes("gap-3 mt-3"):
+                ui.button("Save Version", on_click=save_version).classes("bg-blue-600 hover:bg-blue-700")
+
+    return card
+
+
 # ==============================================
 # MAIN PAGE
 # ==============================================
@@ -1235,6 +1305,7 @@ def page():
             ui.tab("employees", label="Employees", icon="badge")
             ui.tab("service", label="Service", icon="settings")
             ui.tab("tickets", label="Tickets", icon="confirmation_number")
+            ui.tab("version", label="Version", icon="info")
             ui.tab("admin", label="Users", icon="admin_panel_settings")
 
         with ui.tab_panels(tabs, value="company").classes("w-full"):
@@ -1252,6 +1323,9 @@ def page():
 
             with ui.tab_panel("tickets"):
                 create_ticket_sequence_tab()
+
+            with ui.tab_panel("version"):
+                create_version_tab()
 
             with ui.tab_panel("admin"):
                 create_admin_tab()

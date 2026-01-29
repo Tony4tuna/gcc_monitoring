@@ -632,6 +632,9 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
                 # Location
                 location_select = ui.select({}, label="Location").classes("w-full mb-2").props("outlined dense")
                 
+                # Unit count indicator (shows when >4 units)
+                unit_count_label = ui.label("").classes("text-xs font-bold mb-2")
+                
                 # Unit/Equipment
                 unit_select = ui.select({}, label="Equipment Unit").classes("w-full mb-2").props("outlined dense")
                 
@@ -715,6 +718,15 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
                 unit_select.options = {u["unit_id"]: u.get("unit_tag") or f"RTU-{u['unit_id']}" for u in units}
                 unit_select.value = None
                 unit_select.update()
+                
+                # Update unit count indicator
+                if len(units) > 4:
+                    unit_count_label.set_text(f"⚠️ {len(units)} units (will span to page 2)").classes("text-yellow-400")
+                elif len(units) > 0:
+                    unit_count_label.set_text(f"✓ {len(units)} unit{'s' if len(units) != 1 else ''}")
+                else:
+                    unit_count_label.set_text("")
+                
                 update_info_display()
         
         def update_info_display():

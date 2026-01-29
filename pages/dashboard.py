@@ -650,9 +650,16 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
             {"name": "created", "label": "Created", "field": "created", "align": "left"},
         ]
 
-        table = ui.table(columns=columns, rows=[], row_key="ID", selection="single") \
+        table = ui.table(columns=columns, rows=[], row_key="_id_raw", selection="single") \
             .classes("gcc-dashboard-table") \
             .props('dense flat virtual-scroll header-align="left"')
+        
+        # Add HTML slot for colored ID column
+        table.add_slot('body-cell-ID', '''
+            <q-td :props="props">
+                <div v-html="props.value"></div>
+            </q-td>
+        ''')
         
         def update_button_states():
             has_selection = bool(table.selected)
@@ -712,15 +719,36 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
                     units_display = str(unit_count)
                 else:
                     units_display = "—"
+                
+                # Color-code ID by status
+                status = call.get("status", "")
+                priority = call.get("priority", "")
+                
+                # Priority Emergency overrides status colors
+                if priority == "Emergency":
+                    id_color = "text-red-500 font-bold"
+                elif status == "Open":
+                    id_color = "text-blue-400 font-bold"
+                elif status == "In Progress":
+                    id_color = "text-yellow-400 font-bold"
+                elif status == "Closed":
+                    id_color = "text-green-400"
+                else:
+                    id_color = ""
+                
+                # Format ID with color class
+                ticket_id = call.get("ID")
+                id_display = f'<span class="{id_color}">{ticket_id}</span>'
 
                 rows.append({
-                    "ID": call.get("ID"),
+                    "ID": id_display,
+                    "_id_raw": ticket_id,  # Keep raw ID for selection
                     "title": (call.get("title") or "Untitled")[:60],
                     "customer": (customer_name or "—")[:40],
                     "location": (call.get("location_address") or "—")[:60],
                     "units": units_display,
-                    "status": call.get("status", "—"),
-                    "priority": call.get("priority", "—"),
+                    "status": status or "—",
+                    "priority": priority or "—",
                     "created": (call.get("created") or "")[:16],
                     "_full_data": call,
                 })
@@ -817,9 +845,6 @@ def render_dashboard(customer_id: Optional[int]) -> None:
             render_tickets_grid(customer_id if not admin else None)
     else:
         ui.label("Client dashboard unchanged").classes("gcc-muted")
-
-    with ui.row().classes("text-xs gcc-muted mt-6 justify-center"):
-        ui.label(f"GCC Monitoring v{get_version()} • Built {get_build_info().get('build_date','—')}")
 
 
 # =========================================================

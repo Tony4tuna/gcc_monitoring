@@ -26,14 +26,16 @@ def page():
         </style>
         """)
 
-        # Toolbar
+        # Toolbar - compact layout with buttons next to search
         with ui.row().classes("gap-3 w-full items-center flex-wrap mb-4"):
+            # Search
             search = ui.input("Search (company, name, email, phone)").classes("w-96")
-            ui.button("Refresh", icon="refresh", on_click=lambda: refresh()).props("outline dense").tooltip("Reload client list")
-            ui.space()
+            
+            # Action buttons (right after search, same line)
             ui.button("Add Client", icon="add", on_click=lambda: open_customer_dialog("add")).props(f"dense color=primary {'disable' if not can_edit else ''}").tooltip("Create a new client")
-            ui.button("Edit", icon="edit", on_click=lambda: open_customer_dialog("edit")).props(f"dense {'disable' if not can_edit else ''}").tooltip("Edit selected client")
+            ui.button("Edit", icon="edit", on_click=lambda: open_customer_dialog("edit")).props(f"dense color=green-10 {'disable' if not can_edit else ''}").tooltip("Edit selected client")
             ui.button("Delete", icon="delete", on_click=lambda: open_customer_dialog("delete")).props(f"dense color=negative outline {'disable' if not can_edit else ''}").tooltip("Delete selected client")
+            ui.button(icon="refresh", on_click=lambda: refresh()).props("flat dense").tooltip("Reload client list")
 
         # Table with fixed height
         with ui.card().classes("gcc-card").style("height: calc(100vh - 350px); display: flex; flex-direction: column;"):

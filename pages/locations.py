@@ -33,16 +33,14 @@ def page():
             for c in customers
         }
 
-        # Toolbar
+        # Toolbar - clean layout with auto-refresh
         with ui.row().classes("gap-3 w-full items-center flex-wrap mb-4"):
             ui.label("Client:").classes("font-semibold")
             customer_id = ui.select(options=options).classes("w-[520px]")
             search = ui.input("Search location (address/city/state/zip/contact)").classes("w-96")
-            ui.button("Refresh", on_click=lambda: refresh()).props("outline dense")
-            ui.space()
-            add_btn = ui.button("Add Location", on_click=lambda: open_location_dialog("add")).props("dense color=primary")
-            edit_btn = ui.button("Edit", on_click=lambda: open_location_dialog("edit")).props("dense")
-            delete_btn = ui.button("Delete", on_click=lambda: open_location_dialog("delete")).props("dense color=negative outline")
+            add_btn = ui.button("Add Location", icon="add", on_click=lambda: open_location_dialog("add")).props("dense color=primary")
+            edit_btn = ui.button("Edit", icon="edit", on_click=lambda: open_location_dialog("edit")).props("dense color=green-10")
+            delete_btn = ui.button("Delete", icon="delete", on_click=lambda: open_location_dialog("delete")).props("dense color=negative outline")
 
         # Table with fixed height
         with ui.card().classes("gcc-card").style("height: calc(100vh - 380px); display: flex; flex-direction: column;"):
@@ -215,6 +213,9 @@ def page():
 
             dialog.open()
 
+        # Auto-refresh when customer or search changes
         customer_id.on("update:model-value", lambda e: refresh())
+        search.on("update:model-value", lambda e: refresh())
+        
         # Start with no selection; wait for explicit client choice
         update_button_states()

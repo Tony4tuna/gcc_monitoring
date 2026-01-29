@@ -141,9 +141,16 @@ def render_calls_table(customer_id: Optional[int] = None, hierarchy: int = 5):
         ]
 
         # Spacious table with more padding - constrained height
-        table = ui.table(columns=columns, rows=[], row_key="ID", selection="single") \
+        table = ui.table(columns=columns, rows=[], row_key="_id_raw", selection="single") \
             .classes("gcc-dashboard-table w-full") \
             .props('dense flat virtual-scroll')
+        
+        # Add HTML slot for colored ID column
+        table.add_slot('body-cell-ID', '''
+            <q-td :props="props">
+                <div v-html="props.value"></div>
+            </q-td>
+        ''')
         
         empty_label = ui.label("No service calls found. Click New Call to create one.").classes("gcc-muted text-center py-8")
         empty_label.visible = False
@@ -207,9 +214,26 @@ def render_calls_table(customer_id: Optional[int] = None, hierarchy: int = 5):
             rows = []
             for call in calls:
                 customer_name = call.get("customer_name") or call.get("customer") or "—"
+                
+                # Color-code ID based on status (Emergency priority overrides)
+                ticket_id = call.get("ID")
+                status = call.get("status", "—")
+                priority = call.get("priority", "—")
+                
+                if priority == "Emergency":
+                    id_display = f'<span class="text-red-500 font-bold">{ticket_id}</span>'
+                elif status == "Open":
+                    id_display = f'<span class="text-blue-400 font-bold">{ticket_id}</span>'
+                elif status == "In Progress":
+                    id_display = f'<span class="text-yellow-400 font-bold">{ticket_id}</span>'
+                elif status == "Closed":
+                    id_display = f'<span class="text-green-400">{ticket_id}</span>'
+                else:
+                    id_display = str(ticket_id)
 
                 rows.append({
-                    "ID": call.get("ID"),
+                    "ID": id_display,
+                    "_id_raw": ticket_id,  # Keep numeric ID for row selection
                     "title": (call.get("title") or "Untitled")[:60],
                     "customer": customer_name[:40],
                     "location": (call.get("location_address") or call.get("location") or "—")[:60],
@@ -835,6 +859,9 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
                 # Location
                 location_select = ui.select({}, label="Location").classes("w-full mb-2").props("outlined dense")
                 
+                # Unit count indicator (shows when >4 units)
+                unit_count_label = ui.label("").classes("text-xs font-bold mb-2")
+                
                 # Unit/Equipment
                 unit_select = ui.select({}, label="Equipment Unit").classes("w-full mb-2").props("outlined dense")
                 
@@ -939,6 +966,15 @@ def render_call_form(customer_id: Optional[int], user: Dict[str, Any], hierarchy
             else:
                 unit_select.value = unit_select.value if unit_select.value in unit_select.options else None
             unit_select.update()
+            
+            # Update unit count indicator
+            if len(units) > 4:
+                unit_count_label.set_text(f"⚠️ {len(units)} units (will span to page 2)").classes("text-yellow-400")
+            elif len(units) > 0:
+                unit_count_label.set_text(f"✓ {len(units)} unit{'s' if len(units) != 1 else ''}")
+            else:
+                unit_count_label.set_text("")
+            
             update_info_display()
 
         def on_customer_change():

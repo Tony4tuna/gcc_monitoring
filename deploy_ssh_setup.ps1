@@ -6,7 +6,7 @@ param(
     [switch]$SetupOnly = $false
 )
 
-$HOST = "gcchvacr.com"
+$TARGET_HOST = "gcchvacr.com"
 $USER = "tony"
 $SSH_KEY_PATH = "$env:USERPROFILE\.ssh\id_ed25519"
 $APP_DIR = "/home/tony/gcc_monitoring"
@@ -40,7 +40,7 @@ Write-Host ""
 Write-Host "🔑 Step 2: Copying SSH key to droplet..." -ForegroundColor Yellow
 Write-Host "   Enter password for tony@$HOST" -ForegroundColor Gray
 
-ssh-copy-id -i "$SSH_KEY_PATH.pub" -o StrictHostKeyChecking=no "$USER@$HOST" 2>&1 | ForEach-Object {
+ssh-copy-id -i "$SSH_KEY_PATH.pub" -o StrictHostKeyChecking=no "$USER@$TARGET_HOST" 2>&1 | ForEach-Object {
     if ($_ -match "added") {
         Write-Host "   ✓ SSH key added to droplet" -ForegroundColor Green
     } elseif ($_ -match "already exist") {
@@ -60,7 +60,7 @@ if ($SetupOnly) {
 Write-Host ""
 Write-Host "🚀 Step 3: Deploying to droplet..." -ForegroundColor Yellow
 
-ssh -o StrictHostKeyChecking=no "$USER@$HOST" @"
+ssh -o StrictHostKeyChecking=no "$USER@$TARGET_HOST" @"
     cd $APP_DIR && \
     echo '� Backing up database...' && \
     cp data/app.db data/app.db.backup_\$(date +%Y%m%d_%H%M%S) && \
