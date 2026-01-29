@@ -83,6 +83,7 @@ CREATE INDEX IF NOT EXISTS idx_logins_location_id ON Logins(location_id);
 CREATE TABLE IF NOT EXISTS Units (
   unit_id         INTEGER PRIMARY KEY,              -- your 5-digit Unit_ID
   location_id     INTEGER NOT NULL,                 -- link to PropertyLocations.ID
+  unit_tag        TEXT,                             -- display name/tag (e.g., "RTU-1")
   make            TEXT,
   model           TEXT,
   serial          TEXT,
