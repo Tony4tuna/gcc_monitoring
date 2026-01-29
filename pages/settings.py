@@ -260,7 +260,7 @@ def create_email_settings_tab() -> ui.card:
                 
                 # SMTP settings
                 with ui.column().classes("w-full gap-2") as smtp_section:
-                    ui.label("SMTP Settings (Namecheap / Custom Server)").classes("text-lg font-bold text-yellow-400")
+                    ui.label("SMTP Settings (Custom Email Server)").classes("text-lg font-bold text-yellow-400")
                     ui.label("Requires open SMTP ports on your server").classes("text-sm gcc-muted")
                     
                     with ui.row().classes("w-full gap-2"):
