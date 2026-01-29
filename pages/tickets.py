@@ -271,46 +271,22 @@ def render_calls_table(customer_id: Optional[int] = None, hierarchy: int = 5):
             refresh_calls()
 
         def open_ticket_dialog(mode: str):
-            """Open dialog based on mode: new/view/edit/close/delete/print"""
-            if mode == "new":
-                # Create empty call structure for new service call
-                user = current_user() or {}
-                new_call = {
-                    "ID": None,
-                    "customer_id": customer_id if hierarchy == 4 else None,
-                    "location_id": None,
-                    "unit_id": None,
-                    "status": "Open",
-                    "priority": "Normal",
-                    "title": "Work Order",
-                    "description": "",
-                    "materials_services": "",
-                    "labor_description": ""
-                }
-                show_edit_dialog(new_call, mode="create", user=user, hierarchy=hierarchy)
-                return
-
-            if not table.selected:
-                ui.notify("Select a service call first", type="warning")
-                return
-
-            selected = table.selected[0]
-            full_data = selected.get("_full_data", selected)
-            call_id = selected["ID"]
-
-            if mode == "view":
-                show_ticket_detail(full_data)
-            elif mode == "edit":
-                user = current_user() or {}
-                show_edit_dialog(full_data, mode="edit", user=user, hierarchy=hierarchy)
-            elif mode == "close":
-                show_close_dialog(call_id)
-            elif mode == "delete":
-                confirm_delete(call_id)
-            elif mode == "print":
-                show_print_call(full_data)
-            elif mode == "email":
-                send_ticket_email(call_id)
+            """Open dialog based on mode: new/view/edit/close/delete/print/email"""
+            from ui.ticket_actions import open_ticket_dialog as shared_open_ticket_dialog
+            
+            # Get selected row (None for "new" mode)
+            selected_row = table.selected[0] if table.selected else None
+            
+            # Use shared logic
+            user_ctx = current_user() or {}
+            
+            shared_open_ticket_dialog(
+                mode=mode,
+                selected_row=selected_row,
+                user=user_ctx,
+                hierarchy=hierarchy,
+                customer_id=customer_id if hierarchy == 4 else None
+            )
 
         # Wire up event handlers
         table.on("update:selected", lambda: update_button_states())

@@ -758,51 +758,22 @@ def render_tickets_grid(customer_id: Optional[int]) -> None:
             update_button_states()
 
         def open_ticket_dialog(mode: str):
-            from pages.tickets import show_ticket_detail, show_edit_dialog, show_close_dialog, confirm_delete, show_print_call, send_ticket_email
+            from ui.ticket_actions import open_ticket_dialog as shared_open_ticket_dialog
             
-            # Keep dashboard dialog identical to the main Tickets page
+            # Get selected row (None for "new" mode)
+            selected_row = table.selected[0] if table.selected else None
+            
+            # Use shared logic
             user_ctx = current_user() or {}
             hierarchy = int(user_ctx.get("hierarchy") or 5)
-
-            if mode == "new":
-                new_call = {
-                    "ID": None,
-                    "customer_id": customer_id if hierarchy == 4 else None,
-                    "location_id": None,
-                    "unit_id": None,
-                    "status": "Open",
-                    "priority": "Normal",
-                    "title": "Work Order",
-                    "description": "",
-                    "materials_services": "",
-                    "labor_description": "",
-                }
-                show_edit_dialog(new_call, mode="create", user=user_ctx, hierarchy=hierarchy)
-                return
-
-            if not table.selected:
-                ui.notify("Select a service call first", type="warning")
-                return
-
-            selected = table.selected[0]
-            full_data = selected.get("_full_data", selected)
-            call_id = selected["ID"]
-
-            if mode == "view":
-                show_ticket_detail(full_data)
-            elif mode == "edit":
-                user = current_user() or {}
-                # Get hierarchy from stored user data
-                hierarchy_val = user.get("hierarchy", 5)
-                show_edit_dialog(full_data, mode="edit", user=user, hierarchy=hierarchy_val)
-            elif mode == "close":
-                show_close_dialog(call_id)
-            elif mode == "delete":
-                confirm_delete(call_id)
-            elif mode == "print":
-                show_print_call(full_data)
-            elif mode == "email":
-                send_ticket_email(call_id)
+            
+            shared_open_ticket_dialog(
+                mode=mode,
+                selected_row=selected_row,
+                user=user_ctx,
+                hierarchy=hierarchy,
+                customer_id=customer_id if hierarchy == 4 else None
+            )
 
         table.on("update:selected", lambda: update_button_states())
         search_input.on("keydown.enter", lambda: refresh_tickets())

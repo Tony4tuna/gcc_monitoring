@@ -380,6 +380,7 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
 
     box_width = right - left
     box_height = 132  # ~11 lines at 12px each (~800 chars wrapped)
+    max_lines_per_box = 11  # Maximum lines that fit in each box
 
     # Materials box
     c.setFont("Helvetica-Bold", 11)
@@ -389,12 +390,30 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     c.setFont("Helvetica", 10)
     materials_text = ticket.get('materials_services') or "—"
     materials_lines = simpleSplit(materials_text, "Helvetica", 10, box_width - 12)
+    
+    # Track overflow
+    materials_overflow = []
+    materials_written = []
     y_line = y - 12
+    lines_written = 0
     for line in materials_lines:
-        if y_line <= y - box_height:
-            break
-        c.drawString(left + 8, y_line, line)
-        y_line -= 12
+        if y_line <= y - box_height or lines_written >= max_lines_per_box:
+            # Save overflow for page 2
+            materials_overflow.append(line)
+        else:
+            materials_written.append((left + 8, y_line, line))
+            y_line -= 12
+            lines_written += 1
+    
+    # If overflow exists, move last written line to overflow for cleaner look
+    if materials_overflow and materials_written:
+        last_line = materials_written.pop()
+        materials_overflow.insert(0, last_line[2])  # Add to beginning of overflow
+    
+    # Draw the lines that fit
+    for x, y_pos, text in materials_written:
+        c.drawString(x, y_pos, text)
+    
     y = y - box_height - 16
 
     c.line(left, y, right, y)
@@ -408,12 +427,30 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     c.setFont("Helvetica", 10)
     labor_text = ticket.get('labor_description') or "—"
     labor_lines = simpleSplit(labor_text, "Helvetica", 10, box_width - 12)
+    
+    # Track overflow
+    labor_overflow = []
+    labor_written = []
     y_line = y - 12
+    lines_written = 0
     for line in labor_lines:
-        if y_line <= y - box_height:
-            break
-        c.drawString(left + 8, y_line, line)
-        y_line -= 12
+        if y_line <= y - box_height or lines_written >= max_lines_per_box:
+            # Save overflow for page 2
+            labor_overflow.append(line)
+        else:
+            labor_written.append((left + 8, y_line, line))
+            y_line -= 12
+            lines_written += 1
+    
+    # If overflow exists, move last written line to overflow for cleaner look
+    if labor_overflow and labor_written:
+        last_line = labor_written.pop()
+        labor_overflow.insert(0, last_line[2])  # Add to beginning of overflow
+    
+    # Draw the lines that fit
+    for x, y_pos, text in labor_written:
+        c.drawString(x, y_pos, text)
+    
     y = y - box_height - 20
 
     # Notes area with guide lines
@@ -428,71 +465,219 @@ def generate_ticket_pdf(ticket_id: int) -> Tuple[str, bytes]:
     y -= 30  # extra spacing before signature
 
     # Signature line at bottom
-    c.setFont("Helvetica", 10)
-    c.drawString(left, y, "Customer Signature: ____________________________   Date: ____________")
+    signature_y_page1 = y
+    signature_text = "Customer Signature: ____________________________   Date: ____________"
     
     # ============================================
-    # PAGE 2: ATTACHMENT - Complete Unit List (if >4 units)
+    # PAGE 2+: Multi-page support with same form structure
     # ============================================
-    print(f"DEBUG: Total units for ticket {ticket_id}: {len(units)}")  # Debug logging
-    if len(units) > 4:
-        print(f"DEBUG: Page 2 triggered! Creating attachment page...")  # Debug logging
-        c.showPage()  # Start new page
+    has_unit_overflow = len(units) > 4
+    has_text_overflow = bool(materials_overflow or labor_overflow)
+    needs_page_2 = has_unit_overflow or has_text_overflow
+    
+    print(f"DEBUG: Ticket {ticket_id} - Units: {len(units)}, Materials overflow: {len(materials_overflow)} lines, Labor overflow: {len(labor_overflow)} lines")
+    
+    # Add signature & page number to Page 1 if NO overflow
+    if not needs_page_2:
+        c.setFont("Helvetica", 10)
+        c.drawString(left, signature_y_page1, signature_text)
+        c.setFont("Helvetica", 8)
+        c.drawCentredString(width / 2, 30, "Page 1 of 1")
+    else:
+        # Page 1 page number only (total pages TBD)
+        c.setFont("Helvetica", 8)
+        c.drawCentredString(width / 2, 30, "Page 1")
+    
+    # ========================================
+    # CONTINUATION PAGES - Same form structure as Page 1
+    # ========================================
+    if needs_page_2:
+        print(f"DEBUG: Page 2+ triggered - Units>4: {has_unit_overflow}, Text overflow: {has_text_overflow}")
         
-        # Page 2 Header
-        y = letter[1] - 40
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(left, y, f"ATTACHMENT - Service Ticket #{ticket_id}")
-        y -= 20
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(left, y, "Complete Equipment List")
-        y -= 30
+        # Prepare overflow units (units 5+)
+        overflow_units = units[4:] if has_unit_overflow else []
         
-        # All units table with full details
-        c.setFont("Helvetica-Bold", 9)
-        col_widths_full = [50, 50, 70, 100, 70, 50, 80]
-        col_headers_full = ["Tag", "Type", "Make", "Model", "Refrig", "V", "Serial"]
-        row_height = 20
+        page_num = 2
         
-        # Header row
-        x = left
-        c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
-        for i, header in enumerate(col_headers_full):
-            c.drawString(x + 4, y - 14, header)
-            x += col_widths_full[i]
-        y -= row_height
-        
-        # All unit rows
-        c.setFont("Helvetica", 9)
-        for unit in units:
-            # Check if we need a new page
-            if y < 80:
-                c.showPage()
-                y = letter[1] - 40
-                c.setFont("Helvetica-Bold", 9)
-                x = left
-                c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
-                for i, header in enumerate(col_headers_full):
-                    c.drawString(x + 4, y - 14, header)
-                    x += col_widths_full[i]
-                y -= row_height
-                c.setFont("Helvetica", 9)
+        while overflow_units or materials_overflow or labor_overflow:
+            c.showPage()  # New page
             
-            c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
+            # ========================================
+            # PAGE HEADER - Same as Page 1
+            # ========================================
+            y = letter[1] - margin
+            
+            # Company profile (LEFT)
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(left, y, company.get('company', 'GCC TECHNOLOGY'))
+            y -= 16
+            
+            c.setFont("Helvetica", 10)
+            if company.get('address1'):
+                c.drawString(left, y, company['address1'])
+                y -= 12
+            
+            city_line = f"{company.get('city', '')}, {company.get('state', '')} {company.get('zip', '')}".strip().strip(',')
+            if city_line:
+                c.drawString(left, y, city_line)
+                y -= 12
+            
+            phone_formatted = format_phone(company.get('phone'))
+            c.drawString(left, y, f"Phone: {phone_formatted}")
+            
+            # Ticket info (RIGHT)
+            y_right = letter[1] - margin
+            c.setFont("Helvetica", 10)
+            c.drawRightString(right, y_right, f"Ticket #: {ticket_no}")
+            y_right -= 12
+            c.drawRightString(right, y_right, f"Date: {date_str}")
+            if time_str:
+                y_right -= 12
+                c.drawRightString(right, y_right, f"Time: {time_str}")
+            
+            y = min(y, y_right) - 20
+            c.line(left, y, right, y)
+            y -= 20
+            
+            # Form title (LEFT) | Client info (RIGHT)
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(left, y, "WORK ORDER (Continued)")
+            
+            y_client = y
+            c.setFont("Helvetica", 10)
+            c.drawRightString(right, y_client, f"Customer: {customer_name}")
+            y_client -= 12
+            
+            for line in location_address.split('\n'):
+                c.drawRightString(right, y_client, line)
+                y_client -= 12
+            
+            c.drawRightString(right, y_client, f"Phone: {customer_phone}")
+            y_client -= 12
+            c.drawRightString(right, y_client, f"Email: {customer_email}")
+            
+            y = min(y - 14, y_client) - 20
+            c.line(left, y, right, y)
+            y -= 20
+            
+            # ========================================
+            # UNITS TABLE - Next batch (up to 4 units per page)
+            # ========================================
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(left, y, "UNITS INFORMATION")
+            y -= 16
+            
+            # Take next 4 units from overflow
+            page_units = overflow_units[:4]
+            overflow_units = overflow_units[4:]
+            
+            # Draw units table (always 4 rows)
+            c.setFont("Helvetica-Bold", 9)
             x = left
-            values = [
-                unit.get('unit_tag') or f"RTU-{unit.get('unit_id', '?')}",
-                unit.get('equipment_type') or 'RTU',
-                unit.get('make') or '—',
-                unit.get('model') or '—',
-                unit.get('refrigerant_type') or '—',
-                str(unit.get('voltage') or '—'),
-                unit.get('serial') or '—'
-            ]
-            for i, val in enumerate(values):
-                c.drawString(x + 4, y - 14, str(val)[:20])  # Longer truncate for Model
-                x += col_widths_full[i]
+            c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
+            for i, header in enumerate(col_headers):
+                c.drawString(x + 4, y - 14, header)
+                x += col_widths[i]
             y -= row_height
+            
+            c.setFont("Helvetica", 9)
+            for idx in range(4):
+                unit = page_units[idx] if idx < len(page_units) else None
+                c.rect(left, y - row_height, right - left, row_height, stroke=1, fill=0)
+                
+                x = left
+                if unit:
+                    values = [
+                        unit.get('unit_tag') or f"RTU-{unit.get('unit_id', '?')}",
+                        unit.get('equipment_type') or 'RTU',
+                        unit.get('make') or '—',
+                        unit.get('model') or '—',
+                        unit.get('refrigerant_type') or '—',
+                        str(unit.get('voltage') or '—'),
+                        unit.get('serial') or '—'
+                    ]
+                else:
+                    values = [''] * 7
+                
+                for i, val in enumerate(values):
+                    c.drawString(x + 4, y - 14, str(val)[:15])
+                    x += col_widths[i]
+                
+                y -= row_height
+            
+            # ========================================
+            # MATERIALS BOX - Next chunk of overflow
+            # ========================================
+            y -= 10
+            c.line(left, y, right, y)
+            y -= 14
+            
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(left, y, "MATERIALS & SERVICES (Continued)")
+            y -= 14
+            c.rect(left, y - box_height, box_width, box_height, stroke=1, fill=0)
+            
+            c.setFont("Helvetica", 10)
+            y_line = y - 12
+            lines_written = 0
+            
+            while materials_overflow and lines_written < max_lines_per_box:
+                line = materials_overflow.pop(0)
+                c.drawString(left + 8, y_line, line)
+                y_line -= 12
+                lines_written += 1
+            
+            y = y - box_height - 16
+            c.line(left, y, right, y)
+            y -= 14
+            
+            # ========================================
+            # LABOR BOX - Next chunk of overflow
+            # ========================================
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(left, y, "LABOR DESCRIPTION (Continued)")
+            y -= 14
+            c.rect(left, y - box_height, box_width, box_height, stroke=1, fill=0)
+            
+            c.setFont("Helvetica", 10)
+            y_line = y - 12
+            lines_written = 0
+            
+            while labor_overflow and lines_written < max_lines_per_box:
+                line = labor_overflow.pop(0)
+                c.drawString(left + 8, y_line, line)
+                y_line -= 12
+                lines_written += 1
+            
+            y = y - box_height - 20
+            
+            # ========================================
+            # NOTES - Empty on continuation pages
+            # ========================================
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(left, y, "NOTES")
+            y -= 12
+            note_lines = 3
+            c.setFont("Helvetica", 10)
+            for _ in range(note_lines):
+                y -= 12
+                c.line(left, y, right, y)
+            y -= 30
+            
+            # ========================================
+            # SIGNATURE - Only if this is LAST page
+            # ========================================
+            is_last_page = not (overflow_units or materials_overflow or labor_overflow)
+            
+            if is_last_page:
+                c.setFont("Helvetica", 10)
+                c.drawString(left, y, signature_text)
+            
+            # Page number
+            c.setFont("Helvetica", 8)
+            c.drawCentredString(width / 2, 30, f"Page {page_num}")
+            
+            page_num += 1
     
     # Save PDF
     c.save()
