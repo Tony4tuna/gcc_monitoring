@@ -222,42 +222,91 @@ def create_email_settings_tab() -> ui.card:
     """Create email/SMTP settings tab"""
     with ui.card().style("width: 60%; max-width: 60%;") as card:
         with ui.column().classes("w-full gap-2"):
-            ui.label("Email / SMTP Settings").classes("text-xl font-bold")
+            ui.label("Email Settings").classes("text-xl font-bold")
 
             email_settings = get_email_settings()
 
-            with ui.column().classes("w-full gap-2"):
+            with ui.column().classes("w-full gap-4"):
                 fields = {}
                 
-                with ui.row().classes("w-full gap-2"):
-                    fields["smtp_host"] = ui.input(label="SMTP Host", value=email_settings.get("smtp_host", "")).classes("flex-1")
-                    fields["smtp_port"] = ui.number(label="SMTP Port", value=email_settings.get("smtp_port", 587)).classes("flex-1")
+                # Email provider toggle
+                with ui.row().classes("w-full gap-4 items-center mb-4"):
+                    ui.label("Email Provider:").classes("font-bold")
+                    fields["use_sendgrid"] = ui.checkbox(
+                        text="Use SendGrid API (recommended for cloud servers)",
+                        value=bool(email_settings.get("use_sendgrid", 0))
+                    ).classes("mt-0")
+                
+                ui.separator()
+                
+                # SendGrid API settings
+                with ui.column().classes("w-full gap-2 mt-4") as sendgrid_section:
+                    ui.label("SendGrid API Settings").classes("text-lg font-bold text-blue-400")
+                    ui.label("No SMTP ports needed - works on all servers").classes("text-sm gcc-muted")
+                    
+                    fields["sendgrid_api_key"] = ui.input(
+                        label="SendGrid API Key",
+                        value=email_settings.get("sendgrid_api_key", ""),
+                        password=True,
+                        password_toggle_button=True
+                    ).classes("w-full")
+                    
+                    fields["sendgrid_from"] = ui.input(
+                        label="From Email Address (must be verified in SendGrid)",
+                        value=email_settings.get("smtp_from", "")
+                    ).classes("w-full")
+                
+                ui.separator().classes("my-4")
+                
+                # SMTP settings
+                with ui.column().classes("w-full gap-2") as smtp_section:
+                    ui.label("SMTP Settings (Namecheap / Custom Server)").classes("text-lg font-bold text-yellow-400")
+                    ui.label("Requires open SMTP ports on your server").classes("text-sm gcc-muted")
+                    
+                    with ui.row().classes("w-full gap-2"):
+                        fields["smtp_host"] = ui.input(label="SMTP Host", value=email_settings.get("smtp_host", "")).classes("flex-1")
+                        fields["smtp_port"] = ui.number(label="SMTP Port (2525/587/465)", value=email_settings.get("smtp_port", 2525)).classes("flex-1")
 
-                with ui.row().classes("w-full gap-2"):
-                    fields["smtp_user"] = ui.input(label="SMTP Username", value=email_settings.get("smtp_user", "")).classes("flex-1")
-                    fields["smtp_pass"] = ui.input(label="SMTP Password", password=True,
-                            value=email_settings.get("smtp_pass", "")).classes("flex-1")
+                    with ui.row().classes("w-full gap-2"):
+                        fields["smtp_user"] = ui.input(label="SMTP Username", value=email_settings.get("smtp_user", "")).classes("flex-1")
+                        fields["smtp_pass"] = ui.input(
+                            label="SMTP Password",
+                            password=True,
+                            password_toggle_button=True,
+                            value=email_settings.get("smtp_pass", "")
+                        ).classes("flex-1")
 
-                fields["smtp_from"] = ui.input(label="From Email Address", value=email_settings.get("smtp_from", "")).classes("w-full")
+                    fields["use_tls"] = ui.checkbox(text="Use TLS/STARTTLS", value=bool(email_settings.get("use_tls", 1))).classes("mt-2")
 
-                fields["use_tls"] = ui.checkbox(text="Use TLS", value=bool(email_settings.get("use_tls", 1))).classes("mt-2")
-
-                # Test button
+                # Action buttons
                 with ui.row().classes("gap-4 mt-4"):
                     ui.button("Save Settings", on_click=lambda: save_email_settings(fields)).classes("bg-blue-600 hover:bg-blue-700")
                     ui.button("Test Connection", on_click=lambda: test_email_connection(fields)).classes("bg-green-600 hover:bg-green-700")
+                
+                # Toggle visibility based on provider selection
+                def toggle_sections():
+                    use_sg = fields["use_sendgrid"].value
+                    sendgrid_section.set_visibility(use_sg)
+                    smtp_section.set_visibility(not use_sg)
+                
+                fields["use_sendgrid"].on_value_change(lambda: toggle_sections())
+                toggle_sections()  # Initial state
 
     return card
 
 
 def save_email_settings(fields: dict):
     """Save email settings"""
+    use_sendgrid = fields["use_sendgrid"].value
+    
     data = {
+        "use_sendgrid": 1 if use_sendgrid else 0,
+        "sendgrid_api_key": fields["sendgrid_api_key"].value if use_sendgrid else "",
         "smtp_host": fields["smtp_host"].value,
         "smtp_port": int(fields["smtp_port"].value),
         "smtp_user": fields["smtp_user"].value,
         "smtp_pass": fields["smtp_pass"].value,
-        "smtp_from": fields["smtp_from"].value,
+        "smtp_from": fields["sendgrid_from"].value if use_sendgrid else fields["smtp_host"].value,
         "use_tls": fields["use_tls"].value,
     }
 
