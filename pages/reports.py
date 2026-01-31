@@ -97,8 +97,8 @@ def page():
 
 def render_hierarchical_report():
     """Hierarchical report showing Company → Customers → Locations → Equipment"""
-    ui.label("Hierarchical Company Report").classes("text-2xl font-bold mb-4")
-    ui.label("Complete organizational structure: Company Profile → Customers → Locations → Equipment").classes("text-sm text-gray-400 mb-6")
+    ui.label("Company Report").classes("text-2xl font-bold mb-4")
+    ###ui.label("Complete organizational structure: Company Profile → Customers → Locations → Equipment").classes("text-sm text-gray-400 mb-6")
     
     with ui.card().classes("w-full gcc-card"):
         with ui.row().classes("w-full gap-4 items-end mb-4"):
