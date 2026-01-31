@@ -386,7 +386,8 @@ def layout(title: str = "HVAC Dashboard", show_logout: bool = False, hierarchy: 
                 ui.button("📍 Locations", on_click=lambda: ui.navigate.to("/locations")).classes("menu-link")
                 ui.button("📦 Equipment", on_click=lambda: ui.navigate.to("/equipment")).classes("menu-link")
                 ui.button("�️ Thermostat", on_click=lambda: ui.navigate.to("/thermostat")).classes("menu-link")
-                ui.button("�🎫 Service Tickets", on_click=lambda: ui.navigate.to("/tickets")).classes("menu-link")
+                ui.button("🎫 Service Tickets", on_click=lambda: ui.navigate.to("/tickets")).classes("menu-link")
+                ui.button("📊 Reports", on_click=lambda: ui.navigate.to("/reports")).classes("menu-link")
                 ui.button("⚙️ Settings", on_click=lambda: ui.navigate.to("/settings")).classes("menu-link")
 
                 if show_logout:
